@@ -126,9 +126,10 @@ var _ ProcessorSupplier[any, any] = &flatMapProcessorSupplier[any, any]{}
 
 func (p *flatMapProcessorSupplier[T, TR]) Processor(forwards ...Processor[TR]) Processor[T] {
 	return func(v T) {
+		vrs := p.flatMapper(v)
 		for _, forward := range forwards {
-			for _, mv := range p.flatMapper(v) {
-				forward(mv)
+			for _, vr := range vrs {
+				forward(vr)
 			}
 		}
 	}
