@@ -112,6 +112,30 @@ func (p *mapProcessorSupplier[T, TR]) Processor(forwards ...Processor[TR]) Proce
 
 // -------------------------------
 
+func newFlatMapProcessorSupplier[T, TR any](flatMapper func(T) []TR) *flatMapProcessorSupplier[T, TR] {
+	return &flatMapProcessorSupplier[T, TR]{
+		flatMapper: flatMapper,
+	}
+}
+
+type flatMapProcessorSupplier[T, TR any] struct {
+	flatMapper func(T) []TR
+}
+
+var _ ProcessorSupplier[any, any] = &flatMapProcessorSupplier[any, any]{}
+
+func (p *flatMapProcessorSupplier[T, TR]) Processor(forwards ...Processor[TR]) Processor[T] {
+	return func(v T) {
+		for _, forward := range forwards {
+			for _, mv := range p.flatMapper(v) {
+				forward(mv)
+			}
+		}
+	}
+}
+
+// -------------------------------
+
 func newSinkProcessorSupplier[T any](o chan T, d time.Duration) *sinkProcessorSupplier[T] {
 	return &sinkProcessorSupplier[T]{
 		output:   o,

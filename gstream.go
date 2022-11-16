@@ -8,6 +8,7 @@ type GStream[T any] interface {
 	Filter(func(T) bool) GStream[T]
 	Foreach(func(T))
 	Map(func(T) T) GStream[T]
+	FlatMap(func(T) []T) GStream[T]
 	Merge(GStream[T]) GStream[T]
 	Reduce(func() T, func(T, T) T) chan T
 	To() chan T
@@ -16,6 +17,7 @@ type GStream[T any] interface {
 
 type MappedGStream[T, TR any] interface {
 	Map(func(T) TR) GStream[TR]
+	FlatMap(func(T) []TR) GStream[TR]
 }
 
 type KeyValueGStream[K, V any] interface {
@@ -59,6 +61,16 @@ func (s *gstream[T]) Map(mapper func(T) T) GStream[T] {
 		builder:   s.builder,
 		routineID: s.routineID,
 		addChild:  curryingAddChild[T, T, T](mapNode),
+	}
+}
+
+func (s *gstream[T]) FlatMap(flatMapper func(T) []T) GStream[T] {
+	flatMapNode := newProcessorNode[T, T](newFlatMapProcessorSupplier(flatMapper))
+	s.addChild(flatMapNode)
+	return &gstream[T]{
+		builder:   s.builder,
+		routineID: s.routineID,
+		addChild:  curryingAddChild[T, T, T](flatMapNode),
 	}
 }
 
@@ -161,6 +173,17 @@ func (ms *mappedGStream[T, TR]) Map(mapper func(T) TR) GStream[TR] {
 		builder:   ms.builder,
 		routineID: ms.routineID,
 		addChild:  curryingAddChild[T, TR, TR](mapNode),
+	}
+}
+
+
+func (ms *mappedGStream[T, TR]) FlatMap(flatMapper func(T) []TR) GStream[TR] {
+	flatMapNode := newProcessorNode[T, TR](newFlatMapProcessorSupplier(flatMapper))
+	ms.addChild(flatMapNode)
+	return &gstream[TR]{
+		builder:   ms.builder,
+		routineID: ms.routineID,
+		addChild:  curryingAddChild[T, TR, TR](flatMapNode),
 	}
 }
 
