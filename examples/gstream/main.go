@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 
 	"github.com/KumKeeHyun/gstream"
 )
@@ -26,20 +27,20 @@ func main() {
 		return fmt.Sprintf("small-%d", i)
 	})
 	smallOutput := mappedSmall.To()
-
+	mappedSmall.Merge(mappedBig).
+		Foreach(func(s string) {
+			fmt.Println("merged:", s)
+		})
+		
 	go func() {
 		for s := range smallOutput {
-			fmt.Println("output: ", s)
+			fmt.Println("small:", s)
 		}
 	}()
 
-	mappedSmall.Merge(mappedBig).Foreach(func(s string) {
-		fmt.Println(s)
-	})
-
 	close := builder.BuildAndStart()
-	for i := 5; i < 15; i++ {
-		input <- i
+	for i := 0; i < 20; i++ {
+		input <- rand.Int() % 20
 	}
 	close()
 }

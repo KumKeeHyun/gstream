@@ -11,14 +11,14 @@ type UserName struct {
 	name string
 }
 
-var userNameSelectKey = func(u UserName) int { return u.id }
+var nameKeySelector = func(u UserName) int { return u.id }
 
 type UserAge struct {
 	id  int
 	age int
 }
 
-var userAgeSelectKey = func(u UserAge) int { return u.id }
+var ageKeySelector = func(u UserAge) int { return u.id }
 
 type User struct {
 	id   int
@@ -41,11 +41,11 @@ func main() {
 	builder := gstream.NewBuilder()
 
 	ageTable := gstream.Table[int, UserAge](builder).
-		From(ageInput, userAgeSelectKey, gstream.IntSerde)
+		From(ageInput, ageKeySelector, gstream.IntSerde)
 	nameStream := gstream.Stream[UserName](builder).
 		From(nameInput)
 
-	keyedNameStream := gstream.SelectKey(nameStream, userNameSelectKey)
+	keyedNameStream := gstream.SelectKey(nameStream, nameKeySelector)
 	gstream.Joined[int, UserName, UserAge, User](keyedNameStream).
 		JoinTable(ageTable, userJoiner).
 		ToStream().

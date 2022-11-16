@@ -88,8 +88,9 @@ func genericMap[T, TR any](s []T, mapper func(T) TR) []TR {
 
 func gstreamFilterMap(s []int) []int {
 	builder := NewBuilder()
+	input := make(chan int)
 	output := Stream[int](builder).
-		SliceSource(s).
+		From(input).
 		Filter(func(i int) bool { return i%2 == 0 }).
 		Map(func(i int) int { return i * 2 }).
 		ToWithBlocking()
@@ -101,15 +102,20 @@ func gstreamFilterMap(s []int) []int {
 		}
 		donec <- struct{}{}
 	}()
-	builder.BuildAndStart()()
+	close := builder.BuildAndStart()
+	for _, v := range s {
+		input <- v
+	}
+	close()
 	<-donec
 	return res
 }
 
 func gstreamFilterMap10Times(s []int) []int {
 	builder := NewBuilder()
+	input := make(chan int)
 	output := Stream[int](builder).
-		SliceSource(s).
+		From(input).
 		Filter(func(i int) bool { return i%2 == 0 }).
 		Map(func(i int) int { return i * 2 }).
 		Filter(func(i int) bool { return i%2 == 0 }).
@@ -139,7 +145,11 @@ func gstreamFilterMap10Times(s []int) []int {
 		}
 		donec <- struct{}{}
 	}()
-	builder.BuildAndStart()()
+	close := builder.BuildAndStart()
+	for _, v := range s {
+		input <- v
+	}
+	close()
 	<-donec
 	return res
 }
