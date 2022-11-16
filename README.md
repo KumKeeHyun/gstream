@@ -35,13 +35,13 @@ ok  	github.com/KumKeeHyun/gstream	15.228s
 
 ## How To Use
 
-<img width="451" alt="handwriting" src="https://user-images.githubusercontent.com/44857109/202101408-262e1765-e915-46bc-bf37-47b3e5267d4c.png">
+![IMG_0606](https://user-images.githubusercontent.com/44857109/202107245-fdb51b32-fab9-4ed8-addc-ade84632eb00.jpeg)
 
 ### Stateless
 
 - topology
 
-<img width="211" alt="handwriting" src="https://user-images.githubusercontent.com/44857109/202104732-6469672c-f5f5-4c80-b269-1b28aa8a5866.png">
+![IMG_0607](https://user-images.githubusercontent.com/44857109/202107186-1ea34204-a1f4-4797-8480-5d6a37492825.jpeg)
 
 - build stream
 
@@ -78,7 +78,7 @@ mappedSmall.Merge(mappedBig).
 
 - topology
 
-<img width="148" alt="handwriting" src="https://user-images.githubusercontent.com/44857109/202104789-55d8cfc7-264c-49c4-8a07-30daf2f1a83b.png">
+![IMG_0608](https://user-images.githubusercontent.com/44857109/202107203-1756ae71-dcfe-4213-81a1-f57dfa8791d5.jpeg)
 
 - build stream
 
