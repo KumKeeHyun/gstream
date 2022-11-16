@@ -15,8 +15,6 @@ Kafka Streams DSL liked, Stream Processing Library abstracting pipelines pattern
 
 ## Benchmark
 
-
-
 ```
 goos: linux
 goarch: amd64
@@ -35,13 +33,13 @@ ok  	github.com/KumKeeHyun/gstream	15.228s
 
 ## How To Use
 
-![IMG_0606](https://user-images.githubusercontent.com/44857109/202107245-fdb51b32-fab9-4ed8-addc-ade84632eb00.jpeg)
+<img src="https://user-images.githubusercontent.com/44857109/202107245-fdb51b32-fab9-4ed8-addc-ade84632eb00.jpeg" height="400">
 
 ### Stateless
 
 - topology
 
-![IMG_0607](https://user-images.githubusercontent.com/44857109/202107186-1ea34204-a1f4-4797-8480-5d6a37492825.jpeg)
+<img src="https://user-images.githubusercontent.com/44857109/202107186-1ea34204-a1f4-4797-8480-5d6a37492825.jpeg" width="400">
 
 - build stream
 
@@ -78,7 +76,7 @@ mappedSmall.Merge(mappedBig).
 
 - topology
 
-![IMG_0608](https://user-images.githubusercontent.com/44857109/202107203-1756ae71-dcfe-4213-81a1-f57dfa8791d5.jpeg)
+<img src="https://user-images.githubusercontent.com/44857109/202107203-1756ae71-dcfe-4213-81a1-f57dfa8791d5.jpeg" width="400">
 
 - build stream
 
