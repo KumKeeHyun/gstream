@@ -37,7 +37,7 @@ var userJoiner = func(un UserName, ua UserAge) User {
 func main() {
 	nameInput := make(chan UserName)
 	ageInput := make(chan UserAge)
-	
+
 	builder := gstream.NewBuilder()
 
 	ageTable := gstream.Table[int, UserAge](builder).
@@ -48,7 +48,7 @@ func main() {
 	keyedNameStream := gstream.SelectKey(nameStream, nameKeySelector)
 	gstream.Joined[int, UserName, UserAge, User](keyedNameStream).
 		JoinTable(ageTable, userJoiner).
-		ToStream().
+		ToValueStream().
 		Foreach(func(u User) {
 			fmt.Println(u)
 		})
