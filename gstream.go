@@ -10,6 +10,7 @@ type GStream[T any] interface {
 	Map(func(T) T) GStream[T]
 	FlatMap(func(T) []T) GStream[T]
 	Merge(GStream[T]) GStream[T]
+	Pipe() GStream[T]
 	Reduce(func() T, func(T, T) T) chan T
 	To() chan T
 	ToWithBlocking() chan T
@@ -96,6 +97,17 @@ func (s *gstream[T]) Merge(ms GStream[T]) GStream[T] {
 	return &gstream[T]{
 		builder:  s.builder,
 		addChild: curryingAddChild[T, T, T](passNode),
+	}
+}
+
+func (s *gstream[T]) Pipe() GStream[T] {
+	pipe := make(chan T)
+	newSourceNode := newSourceNode(s.builder.getRoutineID(), s.builder.streamCtx, pipe)
+	s.to(pipe, newSourceNode)
+	return &gstream[T]{
+		builder: s.builder,
+		routineID: newSourceNode.RoutineId(),
+		addChild: curryingAddChild[T, T, T](newSourceNode),
 	}
 }
 
