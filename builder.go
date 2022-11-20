@@ -84,9 +84,9 @@ type tableBuilder[K, V any] struct {
 	b *builder
 }
 
-func (tb *tableBuilder[K, V]) From(source chan V, selectKey func(V) K, keySerde Serde[K]) GTable[K, V] {
+func (tb *tableBuilder[K, V]) From(source chan V, selectKey func(V) K, materialized Materialized[K, V]) GTable[K, V] {
 	stream := Stream[V](tb.b).From(source)
-	return SelectKey(stream, selectKey).ToTable(keySerde)
+	return SelectKey(stream, selectKey).ToTable(materialized)
 }
 
 type StreamCloser func()

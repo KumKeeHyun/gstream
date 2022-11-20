@@ -1,7 +1,7 @@
 package gstream
 
 type GTable[K, V any] interface {
-	ToStream() GStream[V]
+	ToValueStream() GStream[V]
 }
 
 type gtable[K, V any] struct {
@@ -13,7 +13,7 @@ type gtable[K, V any] struct {
 
 var _ GTable[any, any] = &gtable[any, any]{}
 
-func (t *gtable[K, V]) ToStream() GStream[V] {
+func (t *gtable[K, V]) ToValueStream() GStream[V] {
 	passNode := newFallThroughProcessorNode[KeyValue[K, Change[V]]]()
 	t.addChild(passNode)
 

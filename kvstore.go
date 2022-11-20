@@ -16,7 +16,7 @@ type KeyValueStore[K, V any] interface {
 	Delete(key K)
 }
 
-func NewMemKeyValueStore[K, V any](keySerde Serde[K]) KeyValueStore[K, V] {
+func newMemKeyValueStore[K, V any](keySerde Serde[K]) KeyValueStore[K, V] {
 	return &memKeyValueStore[K, V]{
 		store:    make(map[string]V, 100),
 		keySerde: keySerde,

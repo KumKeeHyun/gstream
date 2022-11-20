@@ -84,8 +84,12 @@ mappedSmall.Merge(mappedBig).
 builder := gstream.NewBuilder()
 
 ageInput := make(chan UserAge)
+ageMaterialized := materialized.New(
+	materialized.WithKeySerde[int, UserAge](gstream.IntSerde),
+	materialized.WithInMemory[int, UserAge](),
+)
 ageTable := gstream.Table[int, UserAge](builder).
-	From(ageInput, ageKeySelector, gstream.IntSerde)
+	From(ageInput, ageKeySelector, ageMaterialized)
 
 nameInput := make(chan UserName)
 nameStream := gstream.Stream[UserName](builder).
@@ -94,7 +98,7 @@ nameStream := gstream.Stream[UserName](builder).
 keyedNameStream := gstream.SelectKey(nameStream, nameKeySelector)
 gstream.Joined[int, UserName, UserAge, User](keyedNameStream).
 	JoinTable(ageTable, userJoiner).
-	ToStream().
+	ToValueStream().
 	Foreach(func(u User) {
 		fmt.Println(u)
 	})

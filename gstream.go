@@ -30,9 +30,9 @@ type KeyValueGStream[K, V any] interface {
 	FlatMapValues(func(V) []V) KeyValueGStream[K, V]
 	Merge(KeyValueGStream[K, V]) KeyValueGStream[K, V]
 	Pipe() KeyValueGStream[K, V]
-	
+
 	ToValueStream() GStream[V]
-	ToTable(Serde[K]) GTable[K, V]
+	ToTable(m Materialized[K, V]) GTable[K, V]
 }
 
 type MappedKeyValueGStream[K, V, KR, VR any] interface {
@@ -248,13 +248,12 @@ func (kvs *keyValueGStream[K, V]) ToValueStream() GStream[V] {
 		})
 }
 
-func (kvs *keyValueGStream[K, V]) ToTable(keySerde Serde[K]) GTable[K, V] {
+func (kvs *keyValueGStream[K, V]) ToTable(m Materialized[K, V]) GTable[K, V] {
 	passNode := newFallThroughProcessorNode[KeyValue[K, V]]()
 	kvs.addChild(passNode)
 
-	// TODO: 다른 형태의 kvstore 지원하도록 수정. ex: boltDB
-	memKvstore := NewMemKeyValueStore[K, V](keySerde)
-	streamToTableSupplier := newStreamToTableProcessorSupplier(memKvstore)
+	kvstore := newKeyValueStore(m)
+	streamToTableSupplier := newStreamToTableProcessorSupplier(kvstore)
 	streamToTableNode := newStreamToTableNode(streamToTableSupplier)
 	addChild(passNode, streamToTableNode)
 
