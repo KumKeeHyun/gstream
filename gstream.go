@@ -437,3 +437,28 @@ func (js *joinedGStream[K, V, VO, VR]) JoinTable(t GTable[K, VO], joiner func(V,
 		addChild:  currying,
 	}
 }
+
+// -------------------------------
+
+func Aggreate[K, V, VR any](kvs KeyValueGStream[K, V],
+	initializer func() VR, 
+	aggreator func(KeyValue[K, V], VR) VR,
+	materialized Materialized[K, VR]) GTable[K, VR] {
+
+	passNode := newFallThroughProcessorNode[KeyValue[K, V]]()
+	kvsImpl := kvs.(*keyValueGStream[K, V])
+	kvsImpl.addChild(passNode)
+
+	kvstore := newKeyValueStore(materialized)
+	aggregateNode := newProcessorNode[KeyValue[K, V], KeyValue[K, Change[VR]]](newStreamAggreateProcessorSupplier(initializer, aggreator, kvstore))
+	addChild(passNode, aggregateNode)
+
+	curring := curryingAddChild[KeyValue[K, V], KeyValue[K, Change[VR]], KeyValue[K, Change[VR]]](aggregateNode)
+	return &gtable[K, VR]{
+		builder: kvsImpl.builder,
+		routineID: kvsImpl.routineID,
+		kvstore: kvstore,
+		addChild: curring,
+	}
+	
+}

@@ -8,7 +8,7 @@ Kafka Streams DSL liked, Stream Processing Library abstracting pipelines pattern
 
 ## TODO
 
-- [ ] aggregating
+- [x] aggregating
 - [ ] windowing
 - [ ] table-table join
 - [ ] boltDB kvstore

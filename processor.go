@@ -280,3 +280,38 @@ func (p *streamTableJoinProcessorSupplier[K, V, VO, VR]) Processor(forwards ...P
 		}
 	}
 }
+
+// -------------------------------
+
+func newStreamAggreateProcessorSupplier[K, V, VR any](initializer func() VR, aggregator func(KeyValue[K, V], VR) VR, kvstore KeyValueStore[K, VR]) *streamAggreateProcessorSupplier[K, V, VR] {
+	return &streamAggreateProcessorSupplier[K, V, VR]{
+		initializer: initializer,
+		aggregator:  aggregator,
+		kvstore:     kvstore,
+	}
+}
+
+type streamAggreateProcessorSupplier[K, V, VR any] struct {
+	initializer func() VR
+	aggregator  func(KeyValue[K, V], VR) VR
+	kvstore     KeyValueStore[K, VR]
+}
+
+var _ ProcessorSupplier[KeyValue[any, any], KeyValue[any, Change[any]]] = &streamAggreateProcessorSupplier[any, any, any]{}
+
+func (p *streamAggreateProcessorSupplier[K, V, VR]) Processor(forwards ...Processor[KeyValue[K, Change[VR]]]) Processor[KeyValue[K, V]] {
+	return func(kv KeyValue[K, V]) {
+		oldAgg, err := p.kvstore.Get(kv.Key)
+		if err != nil { // TODO: error is not exists
+			oldAgg = p.initializer()
+		}
+		newAgg := p.aggregator(kv, oldAgg)
+		p.kvstore.Put(kv.Key, newAgg)
+
+		ckv := NewKeyValue(kv.Key, NewChange(oldAgg, newAgg))
+		for _, forward := range forwards {
+			forward(ckv)
+		}
+	}
+}
+
