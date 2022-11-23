@@ -40,7 +40,8 @@ graph TD
     B -->|Filter, Map, FlatMap, Merge, Pipe| B
     B -->|ToValueStream| A
     B -->|ToTable, Aggregate, Count| C(GTable)
-    C -->|ToStream, ToValueStream| A
+    C -->|ToStream| B
+    C -->|ToValueStream| A
     B -->|Joined| D(JoinedGStream)
     D -->|JoinTable| B
 ```
