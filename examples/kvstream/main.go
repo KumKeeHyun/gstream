@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/KumKeeHyun/gstream"
 )
@@ -19,12 +20,17 @@ func main() {
 
 	userInput := make(chan User)
 	source := gstream.Stream[User](builder).From(userInput)
-	gstream.SelectKey(source, userKeySelector).
-		Filter(func(kv gstream.KeyValue[int, User]) bool {
-			return kv.Value.age > 25
-		}).Pipe().Foreach(func(kv gstream.KeyValue[int, User]) {
-			fmt.Println(kv.Value)
-		})
+
+	half50Users := gstream.SelectKey(source, userKeySelector).
+		Filter(func(_ int, v User) bool {
+			return v.age > 25
+		}).Pipe()
+
+	gstream.KeyValueMap(half50Users, func(k int, v User) (string, User) {
+		return strconv.Itoa(k), v
+	}).Foreach(func(k string, v User) {
+		fmt.Println("key:", k, ", value:", v)
+	})
 
 	close := builder.BuildAndStart()
 

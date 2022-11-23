@@ -52,18 +52,16 @@ source := gstream.Stream[int](builder).From(input)
 filteredBig := source.Filter(func(i int) bool {
 	return i > 10
 })
-mappedBig := gstream.Mapped[int, string](filteredBig).
-    Map(func(i int) string {
-	    return fmt.Sprintf("big-%d", i)
-    })
+mappedBig := gstream.Map(filteredBig, func(i int) string {
+	return fmt.Sprintf("big-%d", i)
+})
 
 filteredSmall := source.Filter(func(i int) bool {
 	return i <= 10
 })
-mappedSmall := gstream.Mapped[int, string](filteredSmall).
-    Map(func(i int) string {
-	    return fmt.Sprintf("small-%d", i)
-    })
+mappedSmall := gstream.Map(filteredSmall, func(i int) string {
+	return fmt.Sprintf("small-%d", i)
+})
 smallOutput := mappedSmall.To()
 mappedSmall.Merge(mappedBig).
 	Foreach(func(s string) {

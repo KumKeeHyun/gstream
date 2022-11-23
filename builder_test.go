@@ -31,7 +31,7 @@ func TestCloseStream(t *testing.T) {
 	Table[int, string](builder).From(make(chan string), 
 		func(s string) int {return 0}, 
 		&mockMaterialized{})
-	mergedStream := Mapped[int, string](intStream).Map(strconv.Itoa).Merge(strStream)
+	mergedStream := Map(intStream, strconv.Itoa).Merge(strStream)
 	mergedStream.Pipe()
 
 	close := builder.BuildAndStart()
