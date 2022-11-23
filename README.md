@@ -33,13 +33,34 @@ ok  	github.com/KumKeeHyun/gstream	15.228s
 
 ## How To Use
 
-<img src="https://user-images.githubusercontent.com/44857109/202107245-fdb51b32-fab9-4ed8-addc-ade84632eb00.jpeg" height="400">
+```mermaid 
+graph TD
+    A(GStream) -->|SelectKey| B(KeyValueGStream)
+    A -->|Filter, Map, FlatMap, Merge, Pipe| A
+    B -->|Filter, Map, FlatMap, Merge, Pipe| B
+    B -->|ToValueStream| A
+    B -->|ToTable, Aggregate, Count| C(GTable)
+    C -->|ToStream, ToValueStream| A
+    B -->|Joined| D(JoinedGStream)
+    D -->|JoinTable| B
+```
 
 ### Stateless
 
 - topology
 
-<img src="https://user-images.githubusercontent.com/44857109/202107186-1ea34204-a1f4-4797-8480-5d6a37492825.jpeg" width="400">
+```mermaid
+stateDiagram-v2
+    inputChannel --> source : Stream from channel
+    source --> filteredBig : Filter
+    filteredBig --> mappedBig : Map
+    source --> filteredSmall : Filter
+    filteredSmall --> mappedSmall : Map
+    mappedBig --> merged : Merge
+    mappedSmall --> merged : Merge
+    mappedSmall --> outputChannel : To
+    merged --> [*] : Foreach
+```
 
 - build stream
 
@@ -74,7 +95,15 @@ mappedSmall.Merge(mappedBig).
 
 - topology
 
-<img src="https://user-images.githubusercontent.com/44857109/202107203-1756ae71-dcfe-4213-81a1-f57dfa8791d5.jpeg" width="400">
+``` mermaid
+stateDiagram-v2
+    nameInput --> nameStream : Stream from channel
+    ageInput --> ageTable : Table from channel
+    nameStream --> keyedNameStream : SelectKey
+    keyedNameStream --> userStream : JoinTable
+    ageTable --> userStream
+    userStream --> [*] : ToValueStream, Foreach
+```
 
 - build stream
 
