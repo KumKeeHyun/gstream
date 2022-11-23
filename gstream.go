@@ -421,3 +421,9 @@ func Aggreate[K, V, VR any](kvs KeyValueGStream[K, V],
 		addChild:  curring,
 	}
 }
+
+func Count[K, V any](kvs KeyValueGStream[K, V], materialized Materialized[K, int]) GTable[K, int] {
+	cntInitializer := func() int { return 0 }
+	cntAggreator := func(_ KeyValue[K, V], cnt int) int { return cnt + 1 }
+	return Aggreate(kvs, cntInitializer, cntAggreator, materialized)
+}

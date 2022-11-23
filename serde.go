@@ -9,6 +9,7 @@ type Serde[T any] interface {
 
 var (
 	IntSerde Serde[int] = &intSerde{}
+	StrSerde Serde[string] = &stringSerde{}
 )
 
 type intSerde struct{}
@@ -24,3 +25,16 @@ func (*intSerde) Serialize(i int) []byte {
 func (*intSerde) Deserialize(b []byte) int {
 	return int(binary.BigEndian.Uint64(b))
 }
+
+type stringSerde struct{}
+
+var _ Serde[string] = &stringSerde{}
+
+func (*stringSerde) Serialize(s string) []byte {
+	return []byte(s)
+}
+
+func (*stringSerde) Deserialize(b []byte) string {
+	return string(b)
+}
+
