@@ -40,8 +40,14 @@ func newStreamToTableNode[K, V any](supplier *streamToTableProcessorSupplier[K, 
 	return newProcessorNode[KeyValue[K, V], KeyValue[K, Change[V]]](supplier)
 }
 
-func newTableToStreamNode[K, V any](supplier *tableToStreamProcessorSupplier[K, V]) *processorNode[KeyValue[K, Change[V]], V] {
+func newTableToValueStreamNode[K, V any]() *processorNode[KeyValue[K, Change[V]], V] {
+	supplier := newTableToValueStreamProcessorSupplier[K, V]()
 	return newProcessorNode[KeyValue[K, Change[V]], V](supplier)
+}
+
+func newTableToStreamNode[K, V any]() *processorNode[KeyValue[K, Change[V]], KeyValue[K, V]] {
+	supplier := newTableToStreamProcessorSupplier[K, V]()
+	return newProcessorNode[KeyValue[K, Change[V]], KeyValue[K, V]](supplier)
 }
 
 func addChild[T, TR, TRR any](parent *processorNode[T, TR], child *processorNode[TR, TRR]) {

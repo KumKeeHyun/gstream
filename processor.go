@@ -237,6 +237,24 @@ func (p *streamToTableProcessorSupplier[K, V]) Processor(forwards ...Processor[K
 
 // -------------------------------
 
+func newTableToValueStreamProcessorSupplier[K, V any]() *tableToValueStreamProcessorSupplier[K, V] {
+	return &tableToValueStreamProcessorSupplier[K, V]{}
+}
+
+type tableToValueStreamProcessorSupplier[K, V any] struct {
+}
+
+var _ ProcessorSupplier[KeyValue[any, Change[any]], any] = &tableToValueStreamProcessorSupplier[any, any]{}
+
+func (p *tableToValueStreamProcessorSupplier[K, V]) Processor(forwards ...Processor[V]) Processor[KeyValue[K, Change[V]]] {
+	return func(ckv KeyValue[K, Change[V]]) {
+		for _, forward := range forwards {
+			forward(ckv.Value.NewValue)
+		}
+	}
+}
+// -------------------------------
+
 func newTableToStreamProcessorSupplier[K, V any]() *tableToStreamProcessorSupplier[K, V] {
 	return &tableToStreamProcessorSupplier[K, V]{}
 }
@@ -244,12 +262,13 @@ func newTableToStreamProcessorSupplier[K, V any]() *tableToStreamProcessorSuppli
 type tableToStreamProcessorSupplier[K, V any] struct {
 }
 
-var _ ProcessorSupplier[KeyValue[any, Change[any]], any] = &tableToStreamProcessorSupplier[any, any]{}
+var _ ProcessorSupplier[KeyValue[any, Change[any]], KeyValue[any, any]] = &tableToStreamProcessorSupplier[any, any]{}
 
-func (p *tableToStreamProcessorSupplier[K, V]) Processor(forwards ...Processor[V]) Processor[KeyValue[K, Change[V]]] {
+func (p *tableToStreamProcessorSupplier[K, V]) Processor(forwards ...Processor[KeyValue[K, V]]) Processor[KeyValue[K, Change[V]]] {
 	return func(ckv KeyValue[K, Change[V]]) {
+		kv := NewKeyValue(ckv.Key, ckv.Value.NewValue)
 		for _, forward := range forwards {
-			forward(ckv.Value.NewValue)
+			forward(kv)
 		}
 	}
 }
@@ -314,4 +333,3 @@ func (p *streamAggreateProcessorSupplier[K, V, VR]) Processor(forwards ...Proces
 		}
 	}
 }
-
