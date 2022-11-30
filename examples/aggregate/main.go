@@ -40,7 +40,7 @@ func main() {
 		materialized.WithKeySerde[int, *UserHistory](materialized.IntSerde),
 		materialized.WithInMemory[int, *UserHistory](),
 	)
-	gstream.Aggreate[int, User, *UserHistory](users, initializer, aggregator, userMaterialized).
+	gstream.Aggregate[int, User, *UserHistory](users, initializer, aggregator, userMaterialized).
 		ToValueStream().
 		Foreach(func(uh *UserHistory) {
 			fmt.Println(uh)

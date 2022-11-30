@@ -402,13 +402,13 @@ func (js *joinedGStream[K, V, VO, VR]) JoinTable(t GTable[K, VO], joiner func(V,
 
 // -------------------------------
 
-func Aggreate[K, V, VR any](kvs KeyValueGStream[K, V], initializer func() VR, aggreator func(KeyValue[K, V], VR) VR, mater materialized.Materialized[K, VR]) GTable[K, VR] {
+func Aggregate[K, V, VR any](kvs KeyValueGStream[K, V], initializer func() VR, aggregator func(KeyValue[K, V], VR) VR, mater materialized.Materialized[K, VR]) GTable[K, VR] {
 	passNode := newFallThroughProcessorNode[KeyValue[K, V]]()
 	kvsImpl := kvs.(*keyValueGStream[K, V])
 	kvsImpl.addChild(passNode)
 
 	kvstore := state.NewKeyValueStore(mater)
-	aggregateNode := newProcessorNode[KeyValue[K, V], KeyValue[K, Change[VR]]](newStreamAggreateProcessorSupplier(initializer, aggreator, kvstore))
+	aggregateNode := newProcessorNode[KeyValue[K, V], KeyValue[K, Change[VR]]](newStreamAggreateProcessorSupplier(initializer, aggregator, kvstore))
 	addChild(passNode, aggregateNode)
 
 	curring := curryingAddChild[KeyValue[K, V], KeyValue[K, Change[VR]], KeyValue[K, Change[VR]]](aggregateNode)
@@ -422,6 +422,6 @@ func Aggreate[K, V, VR any](kvs KeyValueGStream[K, V], initializer func() VR, ag
 
 func Count[K, V any](kvs KeyValueGStream[K, V], mater materialized.Materialized[K, int]) GTable[K, int] {
 	cntInitializer := func() int { return 0 }
-	cntAggreator := func(_ KeyValue[K, V], cnt int) int { return cnt + 1 }
-	return Aggreate(kvs, cntInitializer, cntAggreator, mater)
+	cntAggregator := func(_ KeyValue[K, V], cnt int) int { return cnt + 1 }
+	return Aggregate(kvs, cntInitializer, cntAggregator, mater)
 }
