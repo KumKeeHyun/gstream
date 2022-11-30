@@ -122,9 +122,9 @@ func (s *gstream[T]) Reduce(init func() T, accumulator func(T, T) T) chan T {
 	reduceNode := newProcessorNode[T, T](newReduceProcessorSupplier(output, init, accumulator))
 	s.addChild(reduceNode)
 
-	s.builder.streamCtx.addCloseChan(s.routineID,
+	s.builder.streamCtx.addChanCloser(s.routineID,
 		s.builder.getSinkID(s.routineID),
-		func() { close(output) })
+		safeChanCloser(output))
 	return output
 }
 
@@ -133,9 +133,9 @@ func (s *gstream[T]) To() chan T {
 	sinkNode := newProcessorNode[T, T](newSinkProcessorSupplier(output, time.Millisecond))
 	s.addChild(sinkNode)
 
-	s.builder.streamCtx.addCloseChan(s.routineID,
+	s.builder.streamCtx.addChanCloser(s.routineID,
 		s.builder.getSinkID(s.routineID),
-		func() { close(output) })
+		safeChanCloser(output))
 
 	return output
 }
@@ -145,9 +145,9 @@ func (s *gstream[T]) ToWithBlocking() chan T {
 	sinkNode := newProcessorNode[T, T](newBlockingSinkProcessorSupplier(output))
 	s.addChild(sinkNode)
 
-	s.builder.streamCtx.addCloseChan(s.routineID,
+	s.builder.streamCtx.addChanCloser(s.routineID,
 		s.builder.getSinkID(s.routineID),
-		func() { close(output) })
+		safeChanCloser(output))
 
 	return output
 }
@@ -157,9 +157,9 @@ func (s *gstream[T]) to(output chan T, sourceNode *processorNode[T, T]) {
 	s.addChild(sinkNode)
 	addChild(sinkNode, sourceNode)
 
-	s.builder.streamCtx.addCloseChan(s.routineID,
+	s.builder.streamCtx.addChanCloser(s.routineID,
 		sourceNode.RoutineId(),
-		func() { close(output) })
+		safeChanCloser(output))
 }
 
 // -------------------------------

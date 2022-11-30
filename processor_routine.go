@@ -20,6 +20,7 @@ func (pr *processorRoutine[T]) start(ctx *gstreamContext) {
 	go func() {
 		defer func() {
 			ctx.tryCloseChans(pr.routineID)
+			ctx.closeStores(pr.routineID)
 			ctx.doneProcessorRoutine()
 		}()
 

@@ -1,5 +1,9 @@
 package state
 
+type StoreCloser interface {
+	Close() error
+}
+
 type ReadOnlyKeyValueStore[K, V any] interface {
 	Get(key K) (V, error)
 }

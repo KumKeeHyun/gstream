@@ -1,18 +1,21 @@
 package gstream
 
 import (
+	"github.com/KumKeeHyun/gstream/state"
 	"sync"
 )
 
 func newGStreamContext() *gstreamContext {
 	return &gstreamContext{
-		routineGroup:     sync.WaitGroup{},
-		processorContext: newProcessorContext(),
+		routineGroup: sync.WaitGroup{},
+		chanContext:  newChanContext(),
+		storeContext: newStoreContext(),
 	}
 }
 
 type gstreamContext struct {
-	processorContext
+	chanContext
+	storeContext
 	routineGroup sync.WaitGroup
 }
 
@@ -29,35 +32,46 @@ func (c *gstreamContext) doneProcessorRoutine() {
 	c.routineGroup.Done()
 }
 
-func newProcessorContext() processorContext {
-	return processorContext{
-		mu:         sync.Mutex{},
-		closeChans: map[GStreamID]closeChanFunc{},
-		refers:     map[GStreamID][]GStreamID{},
-		referCnts:  map[GStreamID]int{},
+func newChanContext() chanContext {
+	return chanContext{
+		mu:        sync.Mutex{},
+		closers:   map[GStreamID]chanCloser{},
+		refers:    map[GStreamID][]GStreamID{},
+		referCnts: map[GStreamID]int{},
 	}
 }
 
-type closeChanFunc func()
+type chanCloser func()
 
-type processorContext struct {
-	mu         sync.Mutex
-	closeChans map[GStreamID]closeChanFunc
-	refers     map[GStreamID][]GStreamID
-	referCnts  map[GStreamID]int
+func safeChanCloser[T any](ch chan T) chanCloser {
+	return func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// TODO: logging
+			}
+		}()
+		close(ch)
+	}
 }
 
-func (c *processorContext) addCloseChan(routineID, childID GStreamID, closeChan closeChanFunc) {
+type chanContext struct {
+	mu        sync.Mutex
+	closers   map[GStreamID]chanCloser
+	refers    map[GStreamID][]GStreamID
+	referCnts map[GStreamID]int
+}
+
+func (c *chanContext) addChanCloser(parentID, childID GStreamID, closer chanCloser) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.closeChans[childID] = closeChan
-	c.refers[routineID] = append(c.refers[routineID], childID)
+	c.closers[childID] = closer
+	c.refers[parentID] = append(c.refers[parentID], childID)
 	cnt := c.referCnts[childID]
 	c.referCnts[childID] = cnt + 1
 }
 
-func (c *processorContext) tryCloseChans(routineID GStreamID) {
+func (c *chanContext) tryCloseChans(routineID GStreamID) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -68,11 +82,43 @@ func (c *processorContext) tryCloseChans(routineID GStreamID) {
 	for _, childID := range refers {
 		cnt := c.referCnts[childID]
 		if cnt <= 1 {
-			if closeChan, exists := c.closeChans[childID]; exists {
+			if closeChan, exists := c.closers[childID]; exists {
 				closeChan()
 			}
-			delete(c.closeChans, childID)
+			delete(c.closers, childID)
 		}
 		c.referCnts[childID] = cnt - 1
+	}
+}
+
+func newStoreContext() storeContext {
+	return storeContext{
+		mu:     sync.Mutex{},
+		stores: map[GStreamID][]state.StoreCloser{},
+	}
+}
+
+type storeContext struct {
+	mu     sync.Mutex
+	stores map[GStreamID][]state.StoreCloser
+}
+
+func (sc *storeContext) addStore(routineID GStreamID, store state.StoreCloser) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+
+	sc.stores[routineID] = append(sc.stores[routineID], store)
+}
+
+func (sc *storeContext) closeStores(routineID GStreamID) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+
+	stores, exists := sc.stores[routineID]
+	if !exists {
+		return
+	}
+	for _, store := range stores {
+		store.Close()
 	}
 }

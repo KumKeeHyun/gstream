@@ -57,9 +57,9 @@ func (sb *streamBuilder[T]) From(source chan T) GStream[T] {
 	sourceNode := newSourceNode(sb.b.getRoutineID(), sb.b.streamCtx, source)
 	addChild(voidNode, sourceNode)
 
-	sb.b.streamCtx.addCloseChan(RootID,
+	sb.b.streamCtx.addChanCloser(RootID,
 		sourceNode.RoutineId(),
-		func() { close(source) })
+		safeChanCloser(source))
 
 	return &gstream[T]{
 		builder:   sb.b,
