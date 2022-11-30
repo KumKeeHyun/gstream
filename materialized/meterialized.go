@@ -4,6 +4,7 @@ type Materialized[K, V any] interface {
 	KeySerde() Serde[K]
 	ValueSerde() Serde[V]
 	StoreType() StoreType
+	Name() string
 }
 
 func New[K, V any](opts ...Option[K, V]) Materialized[K, V] {
@@ -21,6 +22,7 @@ type materialized[K, V any] struct {
 	keySerde   Serde[K]
 	valueSerde Serde[V]
 	storeType  StoreType
+	name       string
 }
 
 var _ Materialized[any, any] = &materialized[any, any]{}
@@ -35,6 +37,10 @@ func (m *materialized[K, V]) ValueSerde() Serde[V] {
 
 func (m *materialized[K, V]) StoreType() StoreType {
 	return m.storeType
+}
+
+func (m *materialized[K, V]) Name() string {
+	return m.name
 }
 
 type Option[K, V any] func(*materialized[K, V])
@@ -57,8 +63,9 @@ func WithInMemory[K, V any]() Option[K, V] {
 	}
 }
 
-func WithBoltDB[K, V any]() Option[K, V] {
+func WithBoltDB[K, V any](name string) Option[K, V] {
 	return func(m *materialized[K, V]) {
 		m.storeType = BoltDB
+		m.name = name
 	}
 }

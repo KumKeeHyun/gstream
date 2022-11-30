@@ -321,6 +321,9 @@ func (kvs *keyValueGStream[K, V]) ToTable(mater materialized.Materialized[K, V])
 	kvs.addChild(passNode)
 
 	kvstore := state.NewKeyValueStore(mater)
+	if closer, ok := kvstore.(state.StoreCloser); ok {
+		kvs.builder.streamCtx.addStore(kvs.routineID, closer)
+	}
 	streamToTableSupplier := newStreamToTableProcessorSupplier(kvstore)
 	streamToTableNode := newStreamToTableNode(streamToTableSupplier)
 	addChild(passNode, streamToTableNode)
@@ -408,6 +411,9 @@ func Aggregate[K, V, VR any](kvs KeyValueGStream[K, V], initializer func() VR, a
 	kvsImpl.addChild(passNode)
 
 	kvstore := state.NewKeyValueStore(mater)
+	if closer, ok := kvstore.(state.StoreCloser); ok {
+		kvsImpl.builder.streamCtx.addStore(kvsImpl.routineID, closer)
+	}
 	aggregateNode := newProcessorNode[KeyValue[K, V], KeyValue[K, Change[VR]]](newStreamAggregateProcessorSupplier(initializer, aggregator, kvstore))
 	addChild(passNode, aggregateNode)
 
