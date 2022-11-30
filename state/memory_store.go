@@ -1,11 +1,12 @@
-package gstream
+package state
 
 import (
 	"errors"
+	"github.com/KumKeeHyun/gstream/materialized"
 	"sync"
 )
 
-func newMemKeyValueStore[K, V any](keySerde Serde[K]) KeyValueStore[K, V] {
+func newMemKeyValueStore[K, V any](keySerde materialized.Serde[K]) KeyValueStore[K, V] {
 	return &memKeyValueStore[K, V]{
 		store:    make(map[string]V, 100),
 		keySerde: keySerde,
@@ -15,7 +16,7 @@ func newMemKeyValueStore[K, V any](keySerde Serde[K]) KeyValueStore[K, V] {
 
 type memKeyValueStore[K, V any] struct {
 	store    map[string]V
-	keySerde Serde[K]
+	keySerde materialized.Serde[K]
 	mu       sync.Mutex
 }
 

@@ -1,4 +1,4 @@
-package gstream
+package state
 
 type ReadOnlyKeyValueStore[K, V any] interface {
 	Get(key K) (V, error)

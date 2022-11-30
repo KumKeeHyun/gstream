@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-
 	"github.com/KumKeeHyun/gstream"
 	"github.com/KumKeeHyun/gstream/materialized"
 )
@@ -42,7 +41,7 @@ func main() {
 	builder := gstream.NewBuilder()
 
 	ageMaterialized := materialized.New(
-		materialized.WithKeySerde[int, UserAge](gstream.IntSerde),
+		materialized.WithKeySerde[int, UserAge](materialized.IntSerde),
 		materialized.WithInMemory[int, UserAge](),
 	)
 	ageTable := gstream.Table[int, UserAge](builder).

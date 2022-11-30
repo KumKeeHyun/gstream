@@ -1,6 +1,8 @@
 package gstream
 
 import (
+	"github.com/KumKeeHyun/gstream/materialized"
+	"github.com/KumKeeHyun/gstream/state"
 	"time"
 )
 
@@ -27,7 +29,7 @@ type KeyValueGStream[K, V any] interface {
 	Pipe() KeyValueGStream[K, V]
 
 	ToValueStream() GStream[V]
-	ToTable(m Materialized[K, V]) GTable[K, V]
+	ToTable(materialized.Materialized[K, V]) GTable[K, V]
 }
 
 type JoinedGStream[K, V, VO, VR any] interface {
@@ -314,11 +316,11 @@ func (kvs *keyValueGStream[K, V]) ToValueStream() GStream[V] {
 	})
 }
 
-func (kvs *keyValueGStream[K, V]) ToTable(m Materialized[K, V]) GTable[K, V] {
+func (kvs *keyValueGStream[K, V]) ToTable(mater materialized.Materialized[K, V]) GTable[K, V] {
 	passNode := newFallThroughProcessorNode[KeyValue[K, V]]()
 	kvs.addChild(passNode)
 
-	kvstore := newKeyValueStore(m)
+	kvstore := state.NewKeyValueStore(mater)
 	streamToTableSupplier := newStreamToTableProcessorSupplier(kvstore)
 	streamToTableNode := newStreamToTableNode(streamToTableSupplier)
 	addChild(passNode, streamToTableNode)
@@ -400,16 +402,12 @@ func (js *joinedGStream[K, V, VO, VR]) JoinTable(t GTable[K, VO], joiner func(V,
 
 // -------------------------------
 
-func Aggreate[K, V, VR any](kvs KeyValueGStream[K, V],
-	initializer func() VR,
-	aggreator func(KeyValue[K, V], VR) VR,
-	materialized Materialized[K, VR]) GTable[K, VR] {
-
+func Aggreate[K, V, VR any](kvs KeyValueGStream[K, V], initializer func() VR, aggreator func(KeyValue[K, V], VR) VR, mater materialized.Materialized[K, VR]) GTable[K, VR] {
 	passNode := newFallThroughProcessorNode[KeyValue[K, V]]()
 	kvsImpl := kvs.(*keyValueGStream[K, V])
 	kvsImpl.addChild(passNode)
 
-	kvstore := newKeyValueStore(materialized)
+	kvstore := state.NewKeyValueStore(mater)
 	aggregateNode := newProcessorNode[KeyValue[K, V], KeyValue[K, Change[VR]]](newStreamAggreateProcessorSupplier(initializer, aggreator, kvstore))
 	addChild(passNode, aggregateNode)
 
@@ -422,8 +420,8 @@ func Aggreate[K, V, VR any](kvs KeyValueGStream[K, V],
 	}
 }
 
-func Count[K, V any](kvs KeyValueGStream[K, V], materialized Materialized[K, int]) GTable[K, int] {
+func Count[K, V any](kvs KeyValueGStream[K, V], mater materialized.Materialized[K, int]) GTable[K, int] {
 	cntInitializer := func() int { return 0 }
 	cntAggreator := func(_ KeyValue[K, V], cnt int) int { return cnt + 1 }
-	return Aggreate(kvs, cntInitializer, cntAggreator, materialized)
+	return Aggreate(kvs, cntInitializer, cntAggreator, mater)
 }

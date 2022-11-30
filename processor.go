@@ -1,6 +1,7 @@
 package gstream
 
 import (
+	"github.com/KumKeeHyun/gstream/state"
 	"log"
 	"time"
 )
@@ -210,14 +211,14 @@ func (p *reduceProcessorSupplier[T]) Processor(forwards ...Processor[T]) Process
 
 // -------------------------------
 
-func newStreamToTableProcessorSupplier[K, V any](kvstore KeyValueStore[K, V]) *streamToTableProcessorSupplier[K, V] {
+func newStreamToTableProcessorSupplier[K, V any](kvstore state.KeyValueStore[K, V]) *streamToTableProcessorSupplier[K, V] {
 	return &streamToTableProcessorSupplier[K, V]{
 		kvstore: kvstore,
 	}
 }
 
 type streamToTableProcessorSupplier[K, V any] struct {
-	kvstore KeyValueStore[K, V]
+	kvstore state.KeyValueStore[K, V]
 }
 
 var _ ProcessorSupplier[KeyValue[any, any], KeyValue[any, Change[any]]] = &streamToTableProcessorSupplier[any, any]{}
@@ -253,6 +254,7 @@ func (p *tableToValueStreamProcessorSupplier[K, V]) Processor(forwards ...Proces
 		}
 	}
 }
+
 // -------------------------------
 
 func newTableToStreamProcessorSupplier[K, V any]() *tableToStreamProcessorSupplier[K, V] {
@@ -302,7 +304,7 @@ func (p *streamTableJoinProcessorSupplier[K, V, VO, VR]) Processor(forwards ...P
 
 // -------------------------------
 
-func newStreamAggreateProcessorSupplier[K, V, VR any](initializer func() VR, aggregator func(KeyValue[K, V], VR) VR, kvstore KeyValueStore[K, VR]) *streamAggreateProcessorSupplier[K, V, VR] {
+func newStreamAggreateProcessorSupplier[K, V, VR any](initializer func() VR, aggregator func(KeyValue[K, V], VR) VR, kvstore state.KeyValueStore[K, VR]) *streamAggreateProcessorSupplier[K, V, VR] {
 	return &streamAggreateProcessorSupplier[K, V, VR]{
 		initializer: initializer,
 		aggregator:  aggregator,
@@ -313,7 +315,7 @@ func newStreamAggreateProcessorSupplier[K, V, VR any](initializer func() VR, agg
 type streamAggreateProcessorSupplier[K, V, VR any] struct {
 	initializer func() VR
 	aggregator  func(KeyValue[K, V], VR) VR
-	kvstore     KeyValueStore[K, VR]
+	kvstore     state.KeyValueStore[K, VR]
 }
 
 var _ ProcessorSupplier[KeyValue[any, any], KeyValue[any, Change[any]]] = &streamAggreateProcessorSupplier[any, any, any]{}

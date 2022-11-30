@@ -1,4 +1,4 @@
-package gstream
+package materialized
 
 import "encoding/binary"
 
@@ -8,7 +8,7 @@ type Serde[T any] interface {
 }
 
 var (
-	IntSerde Serde[int] = &intSerde{}
+	IntSerde Serde[int]    = &intSerde{}
 	StrSerde Serde[string] = &stringSerde{}
 )
 
@@ -37,4 +37,3 @@ func (*stringSerde) Serialize(s string) []byte {
 func (*stringSerde) Deserialize(b []byte) string {
 	return string(b)
 }
-

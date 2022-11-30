@@ -9,8 +9,6 @@ import (
 	"github.com/KumKeeHyun/gstream/materialized"
 )
 
-
-
 func main() {
 	builder := gstream.NewBuilder()
 
@@ -31,7 +29,7 @@ func main() {
 		return w
 	})
 	materialized := materialized.New(
-		materialized.WithKeySerde[string, int](gstream.StrSerde),
+		materialized.WithKeySerde[string, int](materialized.StrSerde),
 		materialized.WithInMemory[string, int](),
 	)
 	gstream.Count[string](kvWords, materialized).

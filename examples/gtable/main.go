@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-
 	"github.com/KumKeeHyun/gstream"
 	"github.com/KumKeeHyun/gstream/materialized"
 )
@@ -21,7 +20,7 @@ func main() {
 	source := gstream.Stream[User](builder).From(input)
 
 	userMaterialized := materialized.New(
-		materialized.WithKeySerde[int, User](gstream.IntSerde),
+		materialized.WithKeySerde[int, User](materialized.IntSerde),
 		materialized.WithInMemory[int, User](),
 	)
 	gstream.SelectKey(source, userSelectKey).

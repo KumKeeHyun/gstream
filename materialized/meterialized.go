@@ -1,10 +1,14 @@
 package materialized
 
-import "github.com/KumKeeHyun/gstream"
+type Materialized[K, V any] interface {
+	KeySerde() Serde[K]
+	ValueSerde() Serde[V]
+	StoreType() StoreType
+}
 
-func New[K, V any](opts ...Option[K, V]) *materialized[K, V] {
+func New[K, V any](opts ...Option[K, V]) Materialized[K, V] {
 	m := &materialized[K, V]{
-		storeType: gstream.MEMORY,
+		storeType: InMemory,
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -14,34 +18,34 @@ func New[K, V any](opts ...Option[K, V]) *materialized[K, V] {
 }
 
 type materialized[K, V any] struct {
-	keySerde   gstream.Serde[K]
-	valueSerde gstream.Serde[V]
-	storeType  gstream.StoreType
+	keySerde   Serde[K]
+	valueSerde Serde[V]
+	storeType  StoreType
 }
 
-var _ gstream.Materialized[any, any] = &materialized[any, any]{}
+var _ Materialized[any, any] = &materialized[any, any]{}
 
-func (m *materialized[K, V]) KeySerde() gstream.Serde[K] {
+func (m *materialized[K, V]) KeySerde() Serde[K] {
 	return m.keySerde
 }
 
-func (m *materialized[K, V]) ValueSerde() gstream.Serde[V] {
+func (m *materialized[K, V]) ValueSerde() Serde[V] {
 	return m.valueSerde
 }
 
-func (m *materialized[K, V]) StoreType() gstream.StoreType {
+func (m *materialized[K, V]) StoreType() StoreType {
 	return m.storeType
 }
 
 type Option[K, V any] func(*materialized[K, V])
 
-func WithKeySerde[K, V any](keySerde gstream.Serde[K]) Option[K, V] {
+func WithKeySerde[K, V any](keySerde Serde[K]) Option[K, V] {
 	return func(m *materialized[K, V]) {
 		m.keySerde = keySerde
 	}
 }
 
-func WithValueSerde[K, V any](valueSerde gstream.Serde[V]) Option[K, V] {
+func WithValueSerde[K, V any](valueSerde Serde[V]) Option[K, V] {
 	return func(m *materialized[K, V]) {
 		m.valueSerde = valueSerde
 	}
@@ -49,12 +53,12 @@ func WithValueSerde[K, V any](valueSerde gstream.Serde[V]) Option[K, V] {
 
 func WithInMemory[K, V any]() Option[K, V] {
 	return func(m *materialized[K, V]) {
-		m.storeType = gstream.MEMORY
+		m.storeType = InMemory
 	}
 }
 
 func WithBoltDB[K, V any]() Option[K, V] {
 	return func(m *materialized[K, V]) {
-		m.storeType = gstream.BOLTDB
+		m.storeType = BoltDB
 	}
 }

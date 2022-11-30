@@ -2,6 +2,7 @@ package gstream
 
 import (
 	"errors"
+	"github.com/KumKeeHyun/gstream/state"
 	"strconv"
 	"testing"
 
@@ -78,11 +79,11 @@ func TestFlatMapProcessor(t *testing.T) {
 
 // -------------------------------
 
-type mockKvstore struct{
+type mockKvstore struct {
 	store map[int]int
 }
 
-var _ KeyValueStore[int, int] = &mockKvstore{}
+var _ state.KeyValueStore[int, int] = &mockKvstore{}
 
 func (kvs *mockKvstore) Get(key int) (int, error) {
 	v, ok := kvs.store[key]
@@ -133,12 +134,12 @@ func TestStreamTableJoinProcessor(t *testing.T) {
 
 	foundGetter := func(int) (int, error) { return 10, nil }
 	notFoundGetter := func(int) (int, error) { return 0, errors.New("mock error") }
-	joiner := func(v, vo int) int { return v + vo}
+	joiner := func(v, vo int) int { return v + vo }
 	p := newStreamTableJoinProcessorSupplier(foundGetter, joiner).
 		Processor(func(kv KeyValue[int, int]) {
 			shouldBeEqual = kv
 		})
-	
+
 	p(NewKeyValue(1, 1))
 	assert.Equal(t, 1, shouldBeEqual.Key)
 	assert.Equal(t, 11, shouldBeEqual.Value)
@@ -153,7 +154,7 @@ func TestStreamTableJoinProcessor(t *testing.T) {
 		Processor(func(kv KeyValue[int, int]) {
 			trueIfProcessed = true
 		})
-	
+
 	p(NewKeyValue(1, 1))
 	assert.False(t, trueIfProcessed)
 

@@ -1,25 +1,12 @@
 package gstream
 
 import (
+	"github.com/KumKeeHyun/gstream/materialized"
 	"strconv"
 	"testing"
 
 	"go.uber.org/goleak"
 )
-
-type mockMaterialized struct {}
-
-func (m *mockMaterialized) KeySerde() Serde[int] {
-	return IntSerde
-}
-
-func (m *mockMaterialized) ValueSerde() Serde[string] {
-	return nil
-}
-
-func (m *mockMaterialized) StoreType() StoreType {
-	return MEMORY
-}
 
 func TestCloseStream(t *testing.T) {
 	defer goleak.VerifyNone(t)
@@ -28,9 +15,14 @@ func TestCloseStream(t *testing.T) {
 
 	intStream := Stream[int](builder).From(make(chan int))
 	strStream := Stream[string](builder).From(make(chan string))
-	Table[int, string](builder).From(make(chan string), 
-		func(s string) int {return 0}, 
-		&mockMaterialized{})
+
+	mater := materialized.New(
+		materialized.WithKeySerde[int, string](materialized.IntSerde),
+		materialized.WithInMemory[int, string](),
+	)
+	Table[int, string](builder).From(make(chan string),
+		func(s string) int { return 0 },
+		mater)
 	mergedStream := Map(intStream, strconv.Itoa).Merge(strStream)
 	mergedStream.Pipe()
 

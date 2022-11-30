@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-
 	"github.com/KumKeeHyun/gstream"
 	"github.com/KumKeeHyun/gstream/materialized"
 )
@@ -38,7 +37,7 @@ func main() {
 	users := gstream.SelectKey(source, userKeySelector)
 
 	userMaterialized := materialized.New(
-		materialized.WithKeySerde[int, *UserHistory](gstream.IntSerde),
+		materialized.WithKeySerde[int, *UserHistory](materialized.IntSerde),
 		materialized.WithInMemory[int, *UserHistory](),
 	)
 	gstream.Aggreate[int, User, *UserHistory](users, initializer, aggregator, userMaterialized).

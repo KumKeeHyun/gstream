@@ -1,5 +1,7 @@
 package gstream
 
+import "github.com/KumKeeHyun/gstream/state"
+
 type GTable[K, V any] interface {
 	ToValueStream() GStream[V]
 	ToStream() KeyValueGStream[K, V]
@@ -8,7 +10,7 @@ type GTable[K, V any] interface {
 type gtable[K, V any] struct {
 	builder   *builder
 	routineID GStreamID
-	kvstore   ReadOnlyKeyValueStore[K, V]
+	kvstore   state.ReadOnlyKeyValueStore[K, V]
 	addChild  func(*processorNode[KeyValue[K, Change[V]], KeyValue[K, Change[V]]])
 }
 
@@ -39,7 +41,7 @@ func (t *gtable[K, V]) ToStream() KeyValueGStream[K, V] {
 	return &keyValueGStream[K, V]{
 		builder:   t.builder,
 		routineID: t.routineID,
-		addChild: currying,
+		addChild:  currying,
 	}
 }
 

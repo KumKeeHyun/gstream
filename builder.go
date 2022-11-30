@@ -1,6 +1,9 @@
 package gstream
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/KumKeeHyun/gstream/materialized"
+)
 
 type nextInt func() int
 
@@ -84,7 +87,7 @@ type tableBuilder[K, V any] struct {
 	b *builder
 }
 
-func (tb *tableBuilder[K, V]) From(source chan V, selectKey func(V) K, materialized Materialized[K, V]) GTable[K, V] {
+func (tb *tableBuilder[K, V]) From(source chan V, selectKey func(V) K, materialized materialized.Materialized[K, V]) GTable[K, V] {
 	stream := Stream[V](tb.b).From(source)
 	return SelectKey(stream, selectKey).ToTable(materialized)
 }
