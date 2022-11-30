@@ -408,7 +408,7 @@ func Aggregate[K, V, VR any](kvs KeyValueGStream[K, V], initializer func() VR, a
 	kvsImpl.addChild(passNode)
 
 	kvstore := state.NewKeyValueStore(mater)
-	aggregateNode := newProcessorNode[KeyValue[K, V], KeyValue[K, Change[VR]]](newStreamAggreateProcessorSupplier(initializer, aggregator, kvstore))
+	aggregateNode := newProcessorNode[KeyValue[K, V], KeyValue[K, Change[VR]]](newStreamAggregateProcessorSupplier(initializer, aggregator, kvstore))
 	addChild(passNode, aggregateNode)
 
 	curring := curryingAddChild[KeyValue[K, V], KeyValue[K, Change[VR]], KeyValue[K, Change[VR]]](aggregateNode)
