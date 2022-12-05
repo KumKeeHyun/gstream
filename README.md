@@ -112,12 +112,15 @@ stateDiagram-v2
 builder := gstream.NewBuilder()
 
 ageInput := make(chan UserAge)
-ageMaterialized := materialized.New(
+ageMater, err := materialized.New(
 	materialized.WithKeySerde[int, UserAge](gstream.IntSerde),
 	materialized.WithInMemory[int, UserAge](),
 )
+if err != nil {
+	// handle error
+}
 ageTable := gstream.Table[int, UserAge](builder).
-	From(ageInput, ageKeySelector, ageMaterialized)
+	From(ageInput, ageKeySelector, ageMater)
 
 nameInput := make(chan UserName)
 nameStream := gstream.Stream[UserName](builder).

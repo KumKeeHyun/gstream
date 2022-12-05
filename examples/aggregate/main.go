@@ -4,28 +4,29 @@ import (
 	"fmt"
 	"github.com/KumKeeHyun/gstream"
 	"github.com/KumKeeHyun/gstream/materialized"
+	"log"
 )
 
 type User struct {
-	id   int
-	name string
-	age  int
+	ID   int
+	Name string
+	Age  int
 }
 
-var userKeySelector = func(u User) int { return u.id }
+var userKeySelector = func(u User) int { return u.ID }
 
 type UserHistory struct {
-	log []User
+	Log []User
 }
 
 var initializer = func() *UserHistory {
 	return &UserHistory{
-		log: make([]User, 0, 10),
+		Log: make([]User, 0, 10),
 	}
 }
 
 var aggregator = func(kv gstream.KeyValue[int, User], uh *UserHistory) *UserHistory {
-	uh.log = append(uh.log, kv.Value)
+	uh.Log = append(uh.Log, kv.Value)
 	return uh
 }
 
@@ -36,14 +37,32 @@ func main() {
 	source := gstream.Stream[User](builder).From(input)
 	users := gstream.SelectKey(source, userKeySelector)
 
-	userMaterialized := materialized.New(
-		materialized.WithKeySerde[int, *UserHistory](materialized.IntSerde),
-		materialized.WithInMemory[int, *UserHistory](),
+	//userMater, err := materialized.New(
+	//	materialized.WithKeySerde[int, *UserHistory](materialized.IntSerde),
+	//	materialized.WithInMemory[int, *UserHistory](),
+	//)
+	userMater, err := materialized.New(
+		materialized.WithBoltDB[int, *UserHistory]("userhistory"),
 	)
-	gstream.Aggregate[int, User, *UserHistory](users, initializer, aggregator, userMaterialized).
+	if err != nil {
+		log.Fatal(err)
+	}
+	gstream.Aggregate[int, User, *UserHistory](users, initializer, aggregator, userMater).
 		ToValueStream().
 		Foreach(func(uh *UserHistory) {
 			fmt.Println(uh)
+		})
+
+	countMater, err := materialized.New(
+		materialized.WithBoltDB[int, int]("countuser"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	gstream.Count(users, countMater).
+		ToStream().
+		Foreach(func(k, v int) {
+			fmt.Println(k, v)
 		})
 	close := builder.BuildAndStart()
 

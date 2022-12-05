@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"unicode"
 
@@ -28,11 +29,14 @@ func main() {
 	kvWords := gstream.SelectKey(words, func(w string) string {
 		return w
 	})
-	materialized := materialized.New(
-		materialized.WithKeySerde[string, int](materialized.StrSerde),
+
+	mater, err := materialized.New(
 		materialized.WithInMemory[string, int](),
 	)
-	gstream.Count[string](kvWords, materialized).
+	if err != nil {
+		log.Fatal(err)
+	}
+	gstream.Count[string](kvWords, mater).
 		ToStream().
 		Foreach(func(w string, i int) {
 			fmt.Printf("word: %s, cnt: %d\n", w, i)

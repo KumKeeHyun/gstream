@@ -7,29 +7,55 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
-var (
-	dbFileDir = "boltdb"
+const (
+	dbFile = "gstream.db"
 )
 
-func newBoltDBKeyValueStore[K, V any](name string, keySerde materialized.Serde[K], valSerde materialized.Serde[V]) KeyValueStore[K, V] {
-	fPath := path.Join(dbFileDir, name+".db")
-	if err := os.MkdirAll(filepath.Dir(fPath), os.ModePerm); err != nil {
-		panic(err)
+var (
+	dbs     = map[string]*bolt.DB{}
+	dbslock = sync.Mutex{}
+)
+
+func getBoldDB(path string) *bolt.DB {
+	dbslock.Lock()
+	defer dbslock.Unlock()
+
+	db, exists := dbs[path]
+	if exists {
+		return db
 	}
 
+	newDB := openBoltDB(path)
+	dbs[path] = newDB
+	return newDB
+}
+
+func openBoltDB(path string) *bolt.DB {
 	bopts := &bolt.Options{}
 	bopts.Timeout = time.Second
-	db, err := bolt.Open(fPath, 0600, bopts)
+
+	db, err := bolt.Open(path, 0600, bopts)
 	if err != nil {
 		// TODO: handle error
 		panic(err)
 	}
+	return db
+}
 
-	err = db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte("gstream"))
+func newBoltDBKeyValueStore[K, V any](mater materialized.Materialized[K, V]) KeyValueStore[K, V] {
+	dbPath := path.Join(mater.DirPath(), dbFile)
+	if err := os.MkdirAll(filepath.Dir(dbPath), os.ModePerm); err != nil {
+		panic(err)
+	}
+	db := getBoldDB(dbPath)
+
+	// Create new bucket with Materialized.Name().
+	err := db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists([]byte(mater.Name()))
 		return err
 	})
 	if err != nil {
@@ -39,13 +65,15 @@ func newBoltDBKeyValueStore[K, V any](name string, keySerde materialized.Serde[K
 
 	return &boltDBKeyValueStore[K, V]{
 		db:       db,
-		keySerde: keySerde,
-		valSerde: valSerde,
+		bucket:   []byte(mater.Name()),
+		keySerde: mater.KeySerde(),
+		valSerde: mater.ValueSerde(),
 	}
 }
 
 type boltDBKeyValueStore[K, V any] struct {
 	db       *bolt.DB
+	bucket   []byte
 	keySerde materialized.Serde[K]
 	valSerde materialized.Serde[V]
 }
@@ -55,8 +83,8 @@ var _ KeyValueStore[any, any] = &boltDBKeyValueStore[any, any]{}
 var _ StoreCloser = &boltDBKeyValueStore[any, any]{}
 
 func (kvs boltDBKeyValueStore[K, V]) Get(key K) (v V, err error) {
-	kvs.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("gstream"))
+	_ = kvs.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(kvs.bucket)
 		bv := b.Get(kvs.keySerde.Serialize(key))
 		if bv == nil {
 			err = errors.New("cannot find value")
@@ -68,15 +96,15 @@ func (kvs boltDBKeyValueStore[K, V]) Get(key K) (v V, err error) {
 }
 
 func (kvs boltDBKeyValueStore[K, V]) Put(key K, value V) {
-	kvs.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("gstream"))
+	_ = kvs.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(kvs.bucket)
 		return b.Put(kvs.keySerde.Serialize(key), kvs.valSerde.Serialize(value))
 	})
 }
 
 func (kvs boltDBKeyValueStore[K, V]) Delete(key K) {
-	kvs.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("gstream"))
+	_ = kvs.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(kvs.bucket)
 		return b.Delete(kvs.keySerde.Serialize(key))
 	})
 }

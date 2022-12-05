@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/KumKeeHyun/gstream"
 	"github.com/KumKeeHyun/gstream/materialized"
+	"log"
 )
 
 type User struct {
@@ -19,12 +20,14 @@ func main() {
 	builder := gstream.NewBuilder()
 	source := gstream.Stream[User](builder).From(input)
 
-	userMaterialized := materialized.New(
-		materialized.WithKeySerde[int, User](materialized.IntSerde),
+	userMater, err := materialized.New(
 		materialized.WithInMemory[int, User](),
 	)
+	if err != nil {
+		log.Fatal(err)
+	}
 	gstream.SelectKey(source, userSelectKey).
-		ToTable(userMaterialized).
+		ToTable(userMater).
 		ToValueStream().
 		Foreach(func(u User) {
 			fmt.Println(u)

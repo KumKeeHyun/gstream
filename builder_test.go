@@ -16,8 +16,7 @@ func TestCloseStream(t *testing.T) {
 	intStream := Stream[int](builder).From(make(chan int))
 	strStream := Stream[string](builder).From(make(chan string))
 
-	mater := materialized.New(
-		materialized.WithKeySerde[int, string](materialized.IntSerde),
+	mater, _ := materialized.New(
 		materialized.WithInMemory[int, string](),
 	)
 	Table[int, string](builder).From(make(chan string),

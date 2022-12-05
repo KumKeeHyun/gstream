@@ -6,10 +6,10 @@ import (
 	"sync"
 )
 
-func newMemKeyValueStore[K, V any](keySerde materialized.Serde[K]) KeyValueStore[K, V] {
+func newMemKeyValueStore[K, V any](mater materialized.Materialized[K, V]) KeyValueStore[K, V] {
 	return &memKeyValueStore[K, V]{
 		store:    make(map[string]V, 100),
-		keySerde: keySerde,
+		keySerde: mater.KeySerde(),
 		mu:       sync.Mutex{},
 	}
 }

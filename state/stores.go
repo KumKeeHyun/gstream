@@ -7,10 +7,10 @@ import (
 func NewKeyValueStore[K, V any](m materialized.Materialized[K, V]) KeyValueStore[K, V] {
 	switch m.StoreType() {
 	case materialized.InMemory:
-		return newMemKeyValueStore[K, V](m.KeySerde())
+		return newMemKeyValueStore[K, V](m)
 	case materialized.BoltDB:
-		return newBoltDBKeyValueStore(m.Name(), m.KeySerde(), m.ValueSerde())
+		return newBoltDBKeyValueStore(m)
 	default:
-		return newMemKeyValueStore[K, V](m.KeySerde())
+		return newMemKeyValueStore[K, V](m)
 	}
 }
