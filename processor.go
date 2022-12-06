@@ -38,6 +38,9 @@ type fallThroughProcessorSupplier[T any] struct {
 var _ ProcessorSupplier[any, any] = &fallThroughProcessorSupplier[any]{}
 
 func (p *fallThroughProcessorSupplier[T]) Processor(forwards ...Processor[T]) Processor[T] {
+	if len(forwards) == 1 {
+		return forwards[0]
+	}
 	return func(v T) {
 		for _, forward := range forwards {
 			forward(v)
