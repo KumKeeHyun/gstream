@@ -13,7 +13,6 @@ type GStream[T any] interface {
 	FlatMap(func(T) []T) GStream[T]
 	Merge(GStream[T]) GStream[T]
 	Pipe() GStream[T]
-	Reduce(func() T, func(T, T) T) chan T
 	To() chan T
 	ToWithBlocking() chan T
 }
@@ -115,17 +114,6 @@ func (s *gstream[T]) Pipe() GStream[T] {
 		routineID: newSourceNode.RoutineId(),
 		addChild:  curryingAddChild[T, T, T](newSourceNode),
 	}
-}
-
-func (s *gstream[T]) Reduce(init func() T, accumulator func(T, T) T) chan T {
-	output := make(chan T)
-	reduceNode := newProcessorNode[T, T](newReduceProcessorSupplier(output, init, accumulator))
-	s.addChild(reduceNode)
-
-	s.builder.streamCtx.addChanCloser(s.routineID,
-		s.builder.getSinkID(s.routineID),
-		safeChanCloser(output))
-	return output
 }
 
 func (s *gstream[T]) To() chan T {

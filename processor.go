@@ -185,32 +185,6 @@ func (p *blockingSinkProcessorSupplier[T]) Processor(_ ...Processor[T]) Processo
 
 // -------------------------------
 
-func newReduceProcessorSupplier[T any](output chan T, init func() T, accumulator func(T, T) T) *reduceProcessorSupplier[T] {
-	return &reduceProcessorSupplier[T]{
-		output:      output,
-		init:        init,
-		accumulator: accumulator,
-	}
-}
-
-type reduceProcessorSupplier[T any] struct {
-	output      chan T
-	init        func() T
-	accumulator func(T, T) T
-}
-
-var _ ProcessorSupplier[any, any] = &reduceProcessorSupplier[any]{}
-
-func (p *reduceProcessorSupplier[T]) Processor(forwards ...Processor[T]) Processor[T] {
-	total := p.init()
-	return func(v T) {
-		total = p.accumulator(total, v)
-		p.output <- total
-	}
-}
-
-// -------------------------------
-
 func newStreamToTableProcessorSupplier[K, V any](kvstore state.KeyValueStore[K, V]) *streamToTableProcessorSupplier[K, V] {
 	return &streamToTableProcessorSupplier[K, V]{
 		kvstore: kvstore,
