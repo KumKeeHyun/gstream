@@ -113,7 +113,6 @@ builder := gstream.NewBuilder()
 
 ageInput := make(chan UserAge)
 ageMater, err := materialized.New(
-	materialized.WithKeySerde[int, UserAge](gstream.IntSerde),
 	materialized.WithInMemory[int, UserAge](),
 )
 if err != nil {

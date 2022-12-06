@@ -38,7 +38,6 @@ func main() {
 	users := gstream.SelectKey(source, userKeySelector)
 
 	//userMater, err := materialized.New(
-	//	materialized.WithKeySerde[int, *UserHistory](materialized.IntSerde),
 	//	materialized.WithInMemory[int, *UserHistory](),
 	//)
 	userMater, err := materialized.New(
