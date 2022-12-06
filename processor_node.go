@@ -66,6 +66,14 @@ func curryingAddChild[T, TR, TRR any](parent *processorNode[T, TR]) func(*proces
 	}
 }
 
+func castAddChild[T, TR any](curriedAddChild func(*processorNode[T, T])) func(*processorNode[T, TR]) {
+	return func(child *processorNode[T, TR]) {
+		passNode := newFallThroughProcessorNode[T]()
+		curriedAddChild(passNode)
+		addChild(passNode, child)
+	}
+}
+
 func buildNode[T, TR any](node *processorNode[T, TR]) Processor[T] {
 	if node.processor == nil {
 		node.processor = node.supplier.Processor(node.forwards()...)
