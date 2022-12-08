@@ -2,11 +2,11 @@ package state
 
 import (
 	"errors"
-	materialized2 "github.com/KumKeeHyun/gstream/state/materialized"
+	"github.com/KumKeeHyun/gstream/state/materialized"
 	"sync"
 )
 
-func newMemKeyValueStore[K, V any](mater materialized2.Materialized[K, V]) KeyValueStore[K, V] {
+func newMemKeyValueStore[K, V any](mater materialized.Materialized[K, V]) KeyValueStore[K, V] {
 	return &memKeyValueStore[K, V]{
 		store:    make(map[string]V, 100),
 		keySerde: mater.KeySerde(),
@@ -16,7 +16,7 @@ func newMemKeyValueStore[K, V any](mater materialized2.Materialized[K, V]) KeyVa
 
 type memKeyValueStore[K, V any] struct {
 	store    map[string]V
-	keySerde materialized2.Serde[K]
+	keySerde materialized.Serde[K]
 	mu       sync.Mutex
 }
 

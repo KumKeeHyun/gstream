@@ -18,12 +18,6 @@ func newNextInt() nextInt {
 
 type GStreamID string
 
-type builder struct {
-	nextInt nextInt
-	sctx    *streamContext
-	root    *processorNode[any, any]
-}
-
 func NewBuilder() *builder {
 	return &builder{
 		nextInt: newNextInt(),
@@ -32,8 +26,22 @@ func NewBuilder() *builder {
 	}
 }
 
+type builder struct {
+	nextInt nextInt
+	sctx    *streamContext
+	root    *processorNode[any, any]
+}
+
 func (b *builder) getRoutineID() GStreamID {
 	return GStreamID(fmt.Sprintf("routine-%d", b.nextInt()))
+}
+
+func (b *builder) BuildAndStart(ctx context.Context) {
+	b.sctx.ctx = ctx
+	build(b.root)
+
+	b.sctx.wg.Wait()
+	b.sctx.cleanUp()
 }
 
 func Stream[T any](b *builder) *streamBuilder[T] {
@@ -55,19 +63,19 @@ func (sb *streamBuilder[T]) From(pipe chan T) GStream[T] {
 	sb.b.sctx.add(newPipeCloser(pipe))
 
 	return &gstream[T]{
-		builder:   sb.b,
-		routineID: srcNode.RoutineId(),
-		addChild:  curryingAddChild[T, T, T](srcNode),
+		builder:  sb.b,
+		rid:      srcNode.RoutineId(),
+		addChild: curryingAddChild[T, T, T](srcNode),
 	}
 }
 
-func (tb *streamBuilder[T]) SliceSource(slice []T) GStream[T] {
-	source := make(chan T, len(slice))
+func (sb *streamBuilder[T]) SliceSource(slice []T) GStream[T] {
+	pipe := make(chan T, len(slice))
 	for _, v := range slice {
-		source <- v
+		pipe <- v
 	}
 	// close(pipe)
-	return tb.From(source)
+	return sb.From(pipe)
 }
 
 func Table[K, V any](b *builder) *tableBuilder[K, V] {
@@ -80,15 +88,7 @@ type tableBuilder[K, V any] struct {
 	b *builder
 }
 
-func (tb *tableBuilder[K, V]) From(source chan V, selectKey func(V) K, materialized materialized.Materialized[K, V]) GTable[K, V] {
-	s := Stream[V](tb.b).From(source)
-	return SelectKey(s, selectKey).ToTable(materialized)
-}
-
-func (b *builder) BuildAndStart(ctx context.Context) {
-	b.sctx.ctx = ctx
-	build(b.root)
-
-	b.sctx.wg.Wait()
-	b.sctx.cleanUp()
+func (tb *tableBuilder[K, V]) From(pipe chan V, selectKey func(V) K, mater materialized.Materialized[K, V]) GTable[K, V] {
+	s := Stream[V](tb.b).From(pipe)
+	return SelectKey(s, selectKey).ToTable(mater)
 }

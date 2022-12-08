@@ -2,7 +2,7 @@ package state
 
 import (
 	"errors"
-	materialized2 "github.com/KumKeeHyun/gstream/state/materialized"
+	"github.com/KumKeeHyun/gstream/state/materialized"
 	bolt "go.etcd.io/bbolt"
 	"os"
 	"path"
@@ -46,7 +46,7 @@ func openBoltDB(path string) *bolt.DB {
 	return db
 }
 
-func newBoltDBKeyValueStore[K, V any](mater materialized2.Materialized[K, V]) KeyValueStore[K, V] {
+func newBoltDBKeyValueStore[K, V any](mater materialized.Materialized[K, V]) KeyValueStore[K, V] {
 	dbPath := path.Join(mater.DirPath(), dbFile)
 	if err := os.MkdirAll(filepath.Dir(dbPath), os.ModePerm); err != nil {
 		panic(err)
@@ -74,8 +74,8 @@ func newBoltDBKeyValueStore[K, V any](mater materialized2.Materialized[K, V]) Ke
 type boltDBKeyValueStore[K, V any] struct {
 	db       *bolt.DB
 	bucket   []byte
-	keySerde materialized2.Serde[K]
-	valSerde materialized2.Serde[V]
+	keySerde materialized.Serde[K]
+	valSerde materialized.Serde[V]
 }
 
 var _ KeyValueStore[any, any] = &boltDBKeyValueStore[any, any]{}

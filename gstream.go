@@ -38,9 +38,9 @@ type JoinedGStream[K, V, VO, VR any] interface {
 // -------------------------------
 
 type gstream[T any] struct {
-	builder   *builder
-	routineID GStreamID
-	addChild  func(*processorNode[T, T])
+	builder  *builder
+	rid      GStreamID
+	addChild func(*processorNode[T, T])
 }
 
 var _ GStream[any] = &gstream[any]{}
@@ -51,9 +51,9 @@ func (s *gstream[T]) Filter(filter func(T) bool) GStream[T] {
 	s.addChild(filterNode)
 
 	return &gstream[T]{
-		builder:   s.builder,
-		routineID: s.routineID,
-		addChild:  curryingAddChild[T, T, T](filterNode),
+		builder:  s.builder,
+		rid:      s.rid,
+		addChild: curryingAddChild[T, T, T](filterNode),
 	}
 }
 
@@ -69,9 +69,9 @@ func (s *gstream[T]) Map(mapper func(T) T) GStream[T] {
 	s.addChild(mapNode)
 
 	return &gstream[T]{
-		builder:   s.builder,
-		routineID: s.routineID,
-		addChild:  curryingAddChild[T, T, T](mapNode),
+		builder:  s.builder,
+		rid:      s.rid,
+		addChild: curryingAddChild[T, T, T](mapNode),
 	}
 }
 
@@ -80,9 +80,9 @@ func (s *gstream[T]) FlatMap(flatMapper func(T) []T) GStream[T] {
 	s.addChild(flatMapNode)
 
 	return &gstream[T]{
-		builder:   s.builder,
-		routineID: s.routineID,
-		addChild:  curryingAddChild[T, T, T](flatMapNode),
+		builder:  s.builder,
+		rid:      s.rid,
+		addChild: curryingAddChild[T, T, T](flatMapNode),
 	}
 }
 
@@ -90,16 +90,16 @@ func (s *gstream[T]) Merge(ms GStream[T]) GStream[T] {
 	msImpl := ms.(*gstream[T])
 
 	// create new routine
-	if s.routineID != msImpl.routineID {
+	if s.rid != msImpl.rid {
 		input := make(chan T)
-		newSourceNode := newSourceNode(s.builder.getRoutineID(), s.builder.sctx, input, 1)
-		s.to(input, newSourceNode)
-		msImpl.to(input, newSourceNode)
+		newSrcNode := newSourceNode(s.builder.getRoutineID(), s.builder.sctx, input, 1)
+		s.to(input, newSrcNode)
+		msImpl.to(input, newSrcNode)
 
 		return &gstream[T]{
-			builder:   s.builder,
-			routineID: newSourceNode.RoutineId(),
-			addChild:  curryingAddChild[T, T, T](newSourceNode),
+			builder:  s.builder,
+			rid:      newSrcNode.RoutineId(),
+			addChild: curryingAddChild[T, T, T](newSrcNode),
 		}
 	}
 
@@ -115,13 +115,13 @@ func (s *gstream[T]) Merge(ms GStream[T]) GStream[T] {
 
 func (s *gstream[T]) Pipe() GStream[T] {
 	pipe := make(chan T)
-	newSourceNode := newSourceNode(s.builder.getRoutineID(), s.builder.sctx, pipe, 1)
-	s.to(pipe, newSourceNode)
+	newSrcNode := newSourceNode(s.builder.getRoutineID(), s.builder.sctx, pipe, 1)
+	s.to(pipe, newSrcNode)
 
 	return &gstream[T]{
-		builder:   s.builder,
-		routineID: newSourceNode.RoutineId(),
-		addChild:  curryingAddChild[T, T, T](newSourceNode),
+		builder:  s.builder,
+		rid:      newSrcNode.RoutineId(),
+		addChild: curryingAddChild[T, T, T](newSrcNode),
 	}
 }
 
@@ -162,9 +162,9 @@ func Map[T, TR any](s GStream[T], mapper func(T) TR) GStream[TR] {
 	castAddChild[T, TR](sImpl.addChild)(mapNode)
 
 	return &gstream[TR]{
-		builder:   sImpl.builder,
-		routineID: sImpl.routineID,
-		addChild:  curryingAddChild[T, TR, TR](mapNode),
+		builder:  sImpl.builder,
+		rid:      sImpl.rid,
+		addChild: curryingAddChild[T, TR, TR](mapNode),
 	}
 }
 
@@ -174,9 +174,9 @@ func FlatMap[T, TR any](s GStream[T], flatMapper func(T) []TR) GStream[TR] {
 	castAddChild[T, TR](sImpl.addChild)(flatMapNode)
 
 	return &gstream[TR]{
-		builder:   sImpl.builder,
-		routineID: sImpl.routineID,
-		addChild:  curryingAddChild[T, TR, TR](flatMapNode),
+		builder:  sImpl.builder,
+		rid:      sImpl.rid,
+		addChild: curryingAddChild[T, TR, TR](flatMapNode),
 	}
 }
 
@@ -186,25 +186,25 @@ func SelectKey[K, V any](s GStream[V], keySelecter func(V) K) KeyValueGStream[K,
 	}).(*gstream[KeyValue[K, V]])
 
 	return &keyValueGStream[K, V]{
-		builder:   kvs.builder,
-		routineID: kvs.routineID,
-		addChild:  kvs.addChild,
+		builder:  kvs.builder,
+		rid:      kvs.rid,
+		addChild: kvs.addChild,
 	}
 }
 
 type keyValueGStream[K, V any] struct {
-	builder   *builder
-	routineID GStreamID
-	addChild  func(*processorNode[KeyValue[K, V], KeyValue[K, V]])
+	builder  *builder
+	rid      GStreamID
+	addChild func(*processorNode[KeyValue[K, V], KeyValue[K, V]])
 }
 
 var _ KeyValueGStream[any, any] = &keyValueGStream[any, any]{}
 
 func (kvs *keyValueGStream[K, V]) gstream() *gstream[KeyValue[K, V]] {
 	return &gstream[KeyValue[K, V]]{
-		builder:   kvs.builder,
-		routineID: kvs.routineID,
-		addChild:  kvs.addChild,
+		builder:  kvs.builder,
+		rid:      kvs.rid,
+		addChild: kvs.addChild,
 	}
 }
 
@@ -214,9 +214,9 @@ func (kvs *keyValueGStream[K, V]) Filter(filter func(K, V) bool) KeyValueGStream
 	}).(*gstream[KeyValue[K, V]])
 
 	return &keyValueGStream[K, V]{
-		builder:   s.builder,
-		routineID: s.routineID,
-		addChild:  s.addChild,
+		builder:  s.builder,
+		rid:      s.rid,
+		addChild: s.addChild,
 	}
 }
 
@@ -233,9 +233,9 @@ func (kvs *keyValueGStream[K, V]) Map(mapper func(K, V) (K, V)) KeyValueGStream[
 	}).(*gstream[KeyValue[K, V]])
 
 	return &keyValueGStream[K, V]{
-		builder:   s.builder,
-		routineID: s.routineID,
-		addChild:  s.addChild,
+		builder:  s.builder,
+		rid:      s.rid,
+		addChild: s.addChild,
 	}
 }
 
@@ -245,9 +245,9 @@ func (kvs *keyValueGStream[K, V]) MapValues(mapper func(V) V) KeyValueGStream[K,
 	}).(*gstream[KeyValue[K, V]])
 
 	return &keyValueGStream[K, V]{
-		builder:   s.builder,
-		routineID: s.routineID,
-		addChild:  s.addChild,
+		builder:  s.builder,
+		rid:      s.rid,
+		addChild: s.addChild,
 	}
 }
 
@@ -257,9 +257,9 @@ func (kvs *keyValueGStream[K, V]) FlatMap(flatMapper func(K, V) []KeyValue[K, V]
 	}).(*gstream[KeyValue[K, V]])
 
 	return &keyValueGStream[K, V]{
-		builder:   s.builder,
-		routineID: s.routineID,
-		addChild:  s.addChild,
+		builder:  s.builder,
+		rid:      s.rid,
+		addChild: s.addChild,
 	}
 }
 
@@ -274,9 +274,9 @@ func (kvs *keyValueGStream[K, V]) FlatMapValues(flatMapper func(V) []V) KeyValue
 	}).(*gstream[KeyValue[K, V]])
 
 	return &keyValueGStream[K, V]{
-		builder:   s.builder,
-		routineID: s.routineID,
-		addChild:  s.addChild,
+		builder:  s.builder,
+		rid:      s.rid,
+		addChild: s.addChild,
 	}
 }
 
@@ -285,9 +285,9 @@ func (kvs *keyValueGStream[K, V]) Merge(mkvs KeyValueGStream[K, V]) KeyValueGStr
 	ms := kvs.gstream().Merge(mkvsImpl).(*gstream[KeyValue[K, V]])
 
 	return &keyValueGStream[K, V]{
-		builder:   ms.builder,
-		routineID: ms.routineID,
-		addChild:  ms.addChild,
+		builder:  ms.builder,
+		rid:      ms.rid,
+		addChild: ms.addChild,
 	}
 }
 
@@ -295,9 +295,9 @@ func (kvs *keyValueGStream[K, V]) Pipe() KeyValueGStream[K, V] {
 	s := kvs.gstream().Pipe().(*gstream[KeyValue[K, V]])
 
 	return &keyValueGStream[K, V]{
-		builder:   s.builder,
-		routineID: s.routineID,
-		addChild:  s.addChild,
+		builder:  s.builder,
+		rid:      s.rid,
+		addChild: s.addChild,
 	}
 }
 
@@ -319,10 +319,10 @@ func (kvs *keyValueGStream[K, V]) ToTable(mater materialized.Materialized[K, V])
 
 	currying := curryingAddChild[KeyValue[K, V], KeyValue[K, Change[V]], KeyValue[K, Change[V]]](streamToTableNode)
 	return &gtable[K, V]{
-		builder:   kvs.builder,
-		routineID: kvs.routineID,
-		addChild:  currying,
-		kvstore:   streamToTableSupplier.kvstore,
+		builder:  kvs.builder,
+		rid:      kvs.rid,
+		addChild: currying,
+		kvstore:  streamToTableSupplier.kvstore,
 	}
 }
 
@@ -336,9 +336,9 @@ func KeyValueMap[K, V, KR, VR any](kvs KeyValueGStream[K, V], mapper func(K, V) 
 	}).(*gstream[KeyValue[KR, VR]])
 
 	return &keyValueGStream[KR, VR]{
-		builder:   mkvs.builder,
-		routineID: mkvs.routineID,
-		addChild:  mkvs.addChild,
+		builder:  mkvs.builder,
+		rid:      mkvs.rid,
+		addChild: mkvs.addChild,
 	}
 }
 
@@ -350,9 +350,9 @@ func KeyValueMapValues[K, V, VR any](kvs KeyValueGStream[K, V], mapper func(V) V
 	}).(*gstream[KeyValue[K, VR]])
 
 	return &keyValueGStream[K, VR]{
-		builder:   mkvs.builder,
-		routineID: mkvs.routineID,
-		addChild:  mkvs.addChild,
+		builder:  mkvs.builder,
+		rid:      mkvs.rid,
+		addChild: mkvs.addChild,
 	}
 }
 
@@ -361,16 +361,16 @@ func KeyValueMapValues[K, V, VR any](kvs KeyValueGStream[K, V], mapper func(V) V
 func Joined[K, V, VO, VR any](kvs KeyValueGStream[K, V]) JoinedGStream[K, V, VO, VR] {
 	kvsImpl := kvs.(*keyValueGStream[K, V])
 	return &joinedGStream[K, V, VO, VR]{
-		builder:   kvsImpl.builder,
-		routineID: kvsImpl.routineID,
-		addChild:  castAddChild[KeyValue[K, V], KeyValue[K, VR]](kvsImpl.addChild),
+		builder:  kvsImpl.builder,
+		rid:      kvsImpl.rid,
+		addChild: castAddChild[KeyValue[K, V], KeyValue[K, VR]](kvsImpl.addChild),
 	}
 }
 
 type joinedGStream[K, V, VO, VR any] struct {
-	builder   *builder
-	routineID GStreamID
-	addChild  func(*processorNode[KeyValue[K, V], KeyValue[K, VR]])
+	builder  *builder
+	rid      GStreamID
+	addChild func(*processorNode[KeyValue[K, V], KeyValue[K, VR]])
 }
 
 var _ JoinedGStream[any, any, any, any] = &joinedGStream[any, any, any, any]{}
@@ -383,9 +383,9 @@ func (js *joinedGStream[K, V, VO, VR]) JoinTable(t GTable[K, VO], joiner func(V,
 
 	currying := curryingAddChild[KeyValue[K, V], KeyValue[K, VR], KeyValue[K, VR]](joinNode)
 	return &keyValueGStream[K, VR]{
-		builder:   js.builder,
-		routineID: js.routineID,
-		addChild:  currying,
+		builder:  js.builder,
+		rid:      js.rid,
+		addChild: currying,
 	}
 }
 
@@ -405,10 +405,10 @@ func Aggregate[K, V, VR any](kvs KeyValueGStream[K, V], initializer func() VR, a
 
 	currying := curryingAddChild[KeyValue[K, V], KeyValue[K, Change[VR]], KeyValue[K, Change[VR]]](aggNode)
 	return &gtable[K, VR]{
-		builder:   kvsImpl.builder,
-		routineID: kvsImpl.routineID,
-		kvstore:   kvstore,
-		addChild:  currying,
+		builder:  kvsImpl.builder,
+		rid:      kvsImpl.rid,
+		kvstore:  kvstore,
+		addChild: currying,
 	}
 }
 

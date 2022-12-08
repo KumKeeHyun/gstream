@@ -38,7 +38,7 @@ type routine[T any] struct {
 	process  Processor[T]
 }
 
-func (r *routine[T]) Run(ctx context.Context, wg *sync.WaitGroup) {
+func (r *routine[T]) run(ctx context.Context, wg *sync.WaitGroup) {
 	wg.Add(r.poolSize)
 	for i := 0; i < r.poolSize; i++ {
 		go worker(ctx, wg, r.pipe, r.process)

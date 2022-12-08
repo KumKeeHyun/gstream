@@ -5,7 +5,7 @@ type processorNode[T, TR any] struct {
 	supplier  ProcessorSupplier[T, TR]
 	forwards  func() []Processor[TR]
 
-	routineID GStreamID
+	rid GStreamID
 
 	isSrc bool
 	sctx  *streamContext
@@ -14,7 +14,7 @@ type processorNode[T, TR any] struct {
 }
 
 func (p *processorNode[_, _]) RoutineId() GStreamID {
-	return p.routineID
+	return p.rid
 }
 
 func newProcessorNode[T, TR any](supplier ProcessorSupplier[T, TR]) *processorNode[T, TR] {
@@ -32,9 +32,9 @@ func newFallThroughProcessorNode[T any]() *processorNode[T, T] {
 	return newProcessorNode[T, T](newFallThroughProcessorSupplier[T]())
 }
 
-func newSourceNode[T any](routineID GStreamID, sctx *streamContext, pipe chan T, pool int) *processorNode[T, T] {
+func newSourceNode[T any](rid GStreamID, sctx *streamContext, pipe chan T, pool int) *processorNode[T, T] {
 	node := newFallThroughProcessorNode[T]()
-	node.routineID = routineID
+	node.rid = rid
 	node.isSrc = true
 	node.sctx = sctx
 	node.pipe = pipe
@@ -62,7 +62,7 @@ func addChild[T, TR, TRR any](parent *processorNode[T, TR], child *processorNode
 		return append(current(), build(child))
 	}
 	if !child.isSrc {
-		child.routineID = parent.routineID
+		child.rid = parent.rid
 	}
 }
 
@@ -86,7 +86,7 @@ func build[T, TR any](n *processorNode[T, TR]) Processor[T] {
 
 		if n.isSrc {
 			r := newRoutine(n.pipe, n.pool, n.processor)
-			r.Run(n.sctx.ctx, n.sctx.wg)
+			r.run(n.sctx.ctx, n.sctx.wg)
 		}
 	}
 

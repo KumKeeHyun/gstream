@@ -1,14 +1,14 @@
 package state
 
 import (
-	materialized2 "github.com/KumKeeHyun/gstream/state/materialized"
+	"github.com/KumKeeHyun/gstream/state/materialized"
 )
 
-func NewKeyValueStore[K, V any](m materialized2.Materialized[K, V]) KeyValueStore[K, V] {
+func NewKeyValueStore[K, V any](m materialized.Materialized[K, V]) KeyValueStore[K, V] {
 	switch m.StoreType() {
-	case materialized2.InMemory:
+	case materialized.InMemory:
 		return newMemKeyValueStore[K, V](m)
-	case materialized2.BoltDB:
+	case materialized.BoltDB:
 		return newBoltDBKeyValueStore(m)
 	default:
 		return newMemKeyValueStore[K, V](m)
