@@ -1,6 +1,7 @@
 package gstream
 
 import (
+	"context"
 	"math/rand"
 	"testing"
 )
@@ -87,34 +88,38 @@ func genericMap[T, TR any](s []T, mapper func(T) TR) []TR {
 }
 
 func gstreamFilterMap(s []int) []int {
-	builder := NewBuilder()
 	input := make(chan int)
-	output := Stream[int](builder).
+	res := make([]int, len(s))
+
+	builder := NewBuilder()
+	Stream[int](builder).
 		From(input).
 		Filter(func(i int) bool { return i%2 == 0 }).
 		Map(func(i int) int { return i * 2 }).
-		ToWithBlocking()
-	res := make([]int, len(s))
-	donec := make(chan struct{})
+		Foreach(func(i int) {
+			res = append(res, i)
+		})
+
+	done := make(chan struct{})
 	go func() {
-		for v := range output {
-			res = append(res, v)
-		}
-		donec <- struct{}{}
+		builder.BuildAndStart(context.Background())
+		done <- struct{}{}
 	}()
-	close := builder.BuildAndStart()
+
 	for _, v := range s {
 		input <- v
 	}
-	close()
-	<-donec
+	close(input)
+	<-done
 	return res
 }
 
 func gstreamFilterMap10Times(s []int) []int {
-	builder := NewBuilder()
 	input := make(chan int)
-	output := Stream[int](builder).
+	res := make([]int, len(s))
+
+	builder := NewBuilder()
+	Stream[int](builder).
 		From(input).
 		Filter(func(i int) bool { return i%2 == 0 }).
 		Map(func(i int) int { return i * 2 }).
@@ -135,22 +140,21 @@ func gstreamFilterMap10Times(s []int) []int {
 		Filter(func(i int) bool { return i%2 == 0 }).
 		Map(func(i int) int { return i * 2 }).
 		Filter(func(i int) bool { return i%2 == 0 }).
-		Map(func(i int) int { return i * 2 }).
-		ToWithBlocking()
-	res := make([]int, len(s))
-	donec := make(chan struct{})
+		Foreach(func(i int) {
+			res = append(res, i)
+		})
+
+	done := make(chan struct{})
 	go func() {
-		for v := range output {
-			res = append(res, v)
-		}
-		donec <- struct{}{}
+		builder.BuildAndStart(context.Background())
+		done <- struct{}{}
 	}()
-	close := builder.BuildAndStart()
+
 	for _, v := range s {
 		input <- v
 	}
-	close()
-	<-donec
+	close(input)
+	<-done
 	return res
 }
 

@@ -1,8 +1,8 @@
 package gstream
 
 import (
-	"github.com/KumKeeHyun/gstream/materialized"
 	"github.com/KumKeeHyun/gstream/state"
+	"github.com/KumKeeHyun/gstream/state/materialized"
 	"time"
 )
 
@@ -46,7 +46,8 @@ type gstream[T any] struct {
 var _ GStream[any] = &gstream[any]{}
 
 func (s *gstream[T]) Filter(filter func(T) bool) GStream[T] {
-	filterNode := newProcessorNode[T, T](newFilterProcessorSupplier(filter))
+	filterSupplier := newFilterProcessorSupplier(filter)
+	filterNode := newProcessorNode[T, T](filterSupplier)
 	s.addChild(filterNode)
 
 	return &gstream[T]{
@@ -57,12 +58,14 @@ func (s *gstream[T]) Filter(filter func(T) bool) GStream[T] {
 }
 
 func (s *gstream[T]) Foreach(foreacher func(T)) {
-	foreachNode := newProcessorNode[T, T](newForeachProcessorSupplier(foreacher))
+	foreachSupplier := newForeachProcessorSupplier(foreacher)
+	foreachNode := newProcessorNode[T, T](foreachSupplier)
 	s.addChild(foreachNode)
 }
 
 func (s *gstream[T]) Map(mapper func(T) T) GStream[T] {
-	mapNode := newProcessorNode[T, T](newMapProcessorSupplier(mapper))
+	mapSupplier := newMapProcessorSupplier(mapper)
+	mapNode := newProcessorNode[T, T](mapSupplier)
 	s.addChild(mapNode)
 
 	return &gstream[T]{
@@ -89,7 +92,7 @@ func (s *gstream[T]) Merge(ms GStream[T]) GStream[T] {
 	// create new routine
 	if s.routineID != msImpl.routineID {
 		input := make(chan T)
-		newSourceNode := newSourceNode(s.builder.getRoutineID(), s.builder.streamCtx, input)
+		newSourceNode := newSourceNode(s.builder.getRoutineID(), s.builder.sctx, input, 1)
 		s.to(input, newSourceNode)
 		msImpl.to(input, newSourceNode)
 
@@ -112,7 +115,7 @@ func (s *gstream[T]) Merge(ms GStream[T]) GStream[T] {
 
 func (s *gstream[T]) Pipe() GStream[T] {
 	pipe := make(chan T)
-	newSourceNode := newSourceNode(s.builder.getRoutineID(), s.builder.streamCtx, pipe)
+	newSourceNode := newSourceNode(s.builder.getRoutineID(), s.builder.sctx, pipe, 1)
 	s.to(pipe, newSourceNode)
 
 	return &gstream[T]{
@@ -123,44 +126,39 @@ func (s *gstream[T]) Pipe() GStream[T] {
 }
 
 func (s *gstream[T]) To() chan T {
-	output := make(chan T)
-	sinkNode := newProcessorNode[T, T](newSinkProcessorSupplier(output, time.Millisecond))
+	sinkPipe := make(chan T)
+	sinkNode := newProcessorNode[T, T](newSinkProcessorSupplier(sinkPipe, time.Millisecond))
 	s.addChild(sinkNode)
 
-	s.builder.streamCtx.addChanCloser(s.routineID,
-		s.builder.getSinkID(s.routineID),
-		safeChanCloser(output))
+	s.builder.sctx.add(newPipeCloser(sinkPipe))
 
-	return output
+	return sinkPipe
 }
 
 func (s *gstream[T]) ToWithBlocking() chan T {
-	output := make(chan T)
-	sinkNode := newProcessorNode[T, T](newBlockingSinkProcessorSupplier(output))
+	sinkPipe := make(chan T)
+	sinkNode := newProcessorNode[T, T](newBlockingSinkProcessorSupplier(sinkPipe))
 	s.addChild(sinkNode)
 
-	s.builder.streamCtx.addChanCloser(s.routineID,
-		s.builder.getSinkID(s.routineID),
-		safeChanCloser(output))
+	s.builder.sctx.add(newPipeCloser(sinkPipe))
 
-	return output
+	return sinkPipe
 }
 
-func (s *gstream[T]) to(output chan T, sourceNode *processorNode[T, T]) {
-	sinkNode := newProcessorNode[T, T](newBlockingSinkProcessorSupplier(output))
+func (s *gstream[T]) to(pipe chan T, sourceNode *processorNode[T, T]) {
+	sinkNode := newProcessorNode[T, T](newBlockingSinkProcessorSupplier(pipe))
 	s.addChild(sinkNode)
 	addChild(sinkNode, sourceNode)
 
-	s.builder.streamCtx.addChanCloser(s.routineID,
-		sourceNode.RoutineId(),
-		safeChanCloser(output))
+	s.builder.sctx.add(newPipeCloser(pipe))
 }
 
 // -------------------------------
 
 func Map[T, TR any](s GStream[T], mapper func(T) TR) GStream[TR] {
 	sImpl := s.(*gstream[T])
-	mapNode := newProcessorNode[T, TR](newMapProcessorSupplier(mapper))
+	mapSupplier := newMapProcessorSupplier(mapper)
+	mapNode := newProcessorNode[T, TR](mapSupplier)
 	castAddChild[T, TR](sImpl.addChild)(mapNode)
 
 	return &gstream[TR]{
@@ -311,8 +309,8 @@ func (kvs *keyValueGStream[K, V]) ToValueStream() GStream[V] {
 
 func (kvs *keyValueGStream[K, V]) ToTable(mater materialized.Materialized[K, V]) GTable[K, V] {
 	kvstore := state.NewKeyValueStore(mater)
-	if closer, ok := kvstore.(state.StoreCloser); ok {
-		kvs.builder.streamCtx.addStore(kvs.routineID, closer)
+	if closer, ok := kvstore.(Closer); ok {
+		kvs.builder.sctx.add(closer)
 	}
 
 	streamToTableSupplier := newStreamToTableProcessorSupplier(kvstore)
@@ -397,8 +395,8 @@ func Aggregate[K, V, VR any](kvs KeyValueGStream[K, V], initializer func() VR, a
 	kvsImpl := kvs.(*keyValueGStream[K, V])
 
 	kvstore := state.NewKeyValueStore(mater)
-	if closer, ok := kvstore.(state.StoreCloser); ok {
-		kvsImpl.builder.streamCtx.addStore(kvsImpl.routineID, closer)
+	if closer, ok := kvstore.(Closer); ok {
+		kvsImpl.builder.sctx.add(closer)
 	}
 
 	aggProcessorSupplier := newStreamAggregateProcessorSupplier(initializer, aggregator, kvstore)

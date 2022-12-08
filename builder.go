@@ -1,8 +1,9 @@
 package gstream
 
 import (
+	"context"
 	"fmt"
-	"github.com/KumKeeHyun/gstream/materialized"
+	"github.com/KumKeeHyun/gstream/state/materialized"
 )
 
 type nextInt func() int
@@ -17,28 +18,22 @@ func newNextInt() nextInt {
 
 type GStreamID string
 
-const RootID = GStreamID("root")
-
 type builder struct {
-	nextInt   nextInt
-	streamCtx *gstreamContext
-	root      *processorNode[any, any]
+	nextInt nextInt
+	sctx    *streamContext
+	root    *processorNode[any, any]
 }
 
 func NewBuilder() *builder {
 	return &builder{
-		nextInt:   newNextInt(),
-		streamCtx: newGStreamContext(),
-		root:      newProcessorNode[any, any](newVoidProcessorSupplier[any, any]()),
+		nextInt: newNextInt(),
+		sctx:    newStreamContext(),
+		root:    newVoidProcessorNode[any](),
 	}
 }
 
 func (b *builder) getRoutineID() GStreamID {
 	return GStreamID(fmt.Sprintf("routine-%d", b.nextInt()))
-}
-
-func (b *builder) getSinkID(rid GStreamID) GStreamID {
-	return GStreamID(fmt.Sprintf("%s-sink-%d", rid, b.nextInt()))
 }
 
 func Stream[T any](b *builder) *streamBuilder[T] {
@@ -51,20 +46,18 @@ type streamBuilder[T any] struct {
 	b *builder
 }
 
-func (sb *streamBuilder[T]) From(source chan T) GStream[T] {
+func (sb *streamBuilder[T]) From(pipe chan T) GStream[T] {
 	voidNode := newProcessorNode[any, T](newVoidProcessorSupplier[any, T]())
 	addChild(sb.b.root, voidNode)
-	sourceNode := newSourceNode(sb.b.getRoutineID(), sb.b.streamCtx, source)
-	addChild(voidNode, sourceNode)
+	srcNode := newSourceNode(sb.b.getRoutineID(), sb.b.sctx, pipe, 1)
+	addChild(voidNode, srcNode)
 
-	sb.b.streamCtx.addChanCloser(RootID,
-		sourceNode.RoutineId(),
-		safeChanCloser(source))
+	sb.b.sctx.add(newPipeCloser(pipe))
 
 	return &gstream[T]{
 		builder:   sb.b,
-		routineID: sourceNode.RoutineId(),
-		addChild:  curryingAddChild[T, T, T](sourceNode),
+		routineID: srcNode.RoutineId(),
+		addChild:  curryingAddChild[T, T, T](srcNode),
 	}
 }
 
@@ -73,7 +66,7 @@ func (tb *streamBuilder[T]) SliceSource(slice []T) GStream[T] {
 	for _, v := range slice {
 		source <- v
 	}
-	// close(source)
+	// close(pipe)
 	return tb.From(source)
 }
 
@@ -88,13 +81,14 @@ type tableBuilder[K, V any] struct {
 }
 
 func (tb *tableBuilder[K, V]) From(source chan V, selectKey func(V) K, materialized materialized.Materialized[K, V]) GTable[K, V] {
-	stream := Stream[V](tb.b).From(source)
-	return SelectKey(stream, selectKey).ToTable(materialized)
+	s := Stream[V](tb.b).From(source)
+	return SelectKey(s, selectKey).ToTable(materialized)
 }
 
-type StreamCloser func()
+func (b *builder) BuildAndStart(ctx context.Context) {
+	b.sctx.ctx = ctx
+	build(b.root)
 
-func (b *builder) BuildAndStart() StreamCloser {
-	buildNode(b.root)
-	return b.streamCtx.close
+	b.sctx.wg.Wait()
+	b.sctx.cleanUp()
 }

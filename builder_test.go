@@ -1,7 +1,8 @@
 package gstream
 
 import (
-	"github.com/KumKeeHyun/gstream/materialized"
+	"context"
+	"github.com/KumKeeHyun/gstream/state/materialized"
 	"strconv"
 	"testing"
 
@@ -25,6 +26,14 @@ func TestCloseStream(t *testing.T) {
 	mergedStream := Map(intStream, strconv.Itoa).Merge(strStream)
 	mergedStream.Pipe()
 
-	close := builder.BuildAndStart()
-	close()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	go func() {
+		builder.BuildAndStart(ctx)
+		done <- struct{}{}
+	}()
+
+	cancel()
+	<-done
 }

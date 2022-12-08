@@ -7,9 +7,10 @@ type processorNode[T, TR any] struct {
 
 	routineID GStreamID
 
-	sourceNode bool
-	streamCtx  *gstreamContext
-	source     chan T
+	isSrc bool
+	sctx  *streamContext
+	pipe  chan T
+	pool  int
 }
 
 func (p *processorNode[_, _]) RoutineId() GStreamID {
@@ -23,16 +24,21 @@ func newProcessorNode[T, TR any](supplier ProcessorSupplier[T, TR]) *processorNo
 	}
 }
 
+func newVoidProcessorNode[T any]() *processorNode[T, T] {
+	return newProcessorNode[T, T](newVoidProcessorSupplier[T, T]())
+}
+
 func newFallThroughProcessorNode[T any]() *processorNode[T, T] {
 	return newProcessorNode[T, T](newFallThroughProcessorSupplier[T]())
 }
 
-func newSourceNode[T any](routineID GStreamID, streamCtx *gstreamContext, source chan T) *processorNode[T, T] {
+func newSourceNode[T any](routineID GStreamID, sctx *streamContext, pipe chan T, pool int) *processorNode[T, T] {
 	node := newFallThroughProcessorNode[T]()
 	node.routineID = routineID
-	node.sourceNode = true
-	node.streamCtx = streamCtx
-	node.source = source
+	node.isSrc = true
+	node.sctx = sctx
+	node.pipe = pipe
+	node.pool = pool
 	return node
 }
 
@@ -53,9 +59,9 @@ func newTableToStreamNode[K, V any]() *processorNode[KeyValue[K, Change[V]], Key
 func addChild[T, TR, TRR any](parent *processorNode[T, TR], child *processorNode[TR, TRR]) {
 	current := parent.forwards
 	parent.forwards = func() []Processor[TR] {
-		return append(current(), buildNode(child))
+		return append(current(), build(child))
 	}
-	if !child.sourceNode {
+	if !child.isSrc {
 		child.routineID = parent.routineID
 	}
 }
@@ -74,15 +80,15 @@ func castAddChild[T, TR any](curriedAddChild func(*processorNode[T, T])) func(*p
 	}
 }
 
-func buildNode[T, TR any](node *processorNode[T, TR]) Processor[T] {
-	if node.processor == nil {
-		node.processor = node.supplier.Processor(node.forwards()...)
+func build[T, TR any](n *processorNode[T, TR]) Processor[T] {
+	if n.processor == nil {
+		n.processor = n.supplier.Processor(n.forwards()...)
 
-		if node.sourceNode {
-			routine := newProcessorRoutine(node.routineID, node.source, node.processor)
-			routine.start(node.streamCtx)
+		if n.isSrc {
+			r := newRoutine(n.pipe, n.pool, n.processor)
+			r.Run(n.sctx.ctx, n.sctx.wg)
 		}
 	}
 
-	return node.processor
+	return n.processor
 }

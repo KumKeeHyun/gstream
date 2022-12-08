@@ -1,9 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/KumKeeHyun/gstream"
-	"github.com/KumKeeHyun/gstream/materialized"
+	"github.com/KumKeeHyun/gstream/state/materialized"
 	"log"
 )
 
@@ -63,7 +64,14 @@ func main() {
 		Foreach(func(k, v int) {
 			fmt.Println(k, v)
 		})
-	close := builder.BuildAndStart()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	go func() {
+		builder.BuildAndStart(ctx)
+		done <- struct{}{}
+	}()
 
 	input <- User{1, "kum", 22}
 	input <- User{2, "kim", 24}
@@ -72,5 +80,7 @@ func main() {
 	input <- User{1, "kum", 26}
 	input <- User{2, "kim", 28}
 
-	close()
+	cancel()
+	<-done
+
 }

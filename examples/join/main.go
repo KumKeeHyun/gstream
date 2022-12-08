@@ -1,9 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/KumKeeHyun/gstream"
-	"github.com/KumKeeHyun/gstream/materialized"
+	"github.com/KumKeeHyun/gstream/state/materialized"
 	"log"
 )
 
@@ -61,7 +62,13 @@ func main() {
 			fmt.Println(u)
 		})
 
-	close := builder.BuildAndStart()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	go func() {
+		builder.BuildAndStart(ctx)
+		done <- struct{}{}
+	}()
 
 	ageInput <- UserAge{1, 24}
 	ageInput <- UserAge{2, 26}
@@ -76,5 +83,6 @@ func main() {
 	ageInput <- UserAge{3, 28}
 	nameInput <- UserName{3, "park"}
 
-	close()
+	cancel()
+	<-done
 }

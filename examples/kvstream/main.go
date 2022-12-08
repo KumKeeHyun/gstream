@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -32,11 +33,19 @@ func main() {
 		fmt.Println("key:", k, ", value:", v)
 	})
 
-	close := builder.BuildAndStart()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	go func() {
+		builder.BuildAndStart(ctx)
+		done <- struct{}{}
+	}()
 
 	userInput <- User{1, "kum", 24}
 	userInput <- User{2, "kim", 26}
 	userInput <- User{3, "park", 28}
 	userInput <- User{4, "sin", 22}
-	close()
+
+	cancel()
+	<-done
 }

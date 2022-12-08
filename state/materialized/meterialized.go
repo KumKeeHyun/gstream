@@ -2,6 +2,13 @@ package materialized
 
 import "errors"
 
+type StoreType int
+
+const (
+	InMemory = iota
+	BoltDB
+)
+
 type Materialized[K, V any] interface {
 	KeySerde() Serde[K]
 	ValueSerde() Serde[V]

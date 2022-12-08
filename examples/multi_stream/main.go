@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/KumKeeHyun/gstream"
 )
@@ -18,10 +20,17 @@ func main() {
 	source2 := gstream.Stream[int](builder).From(input2)
 
 	source1.Merge(source2).Foreach(func(i int) {
-		fmt.Println(i)
+		fmt.Println("merged", i)
 	})
 
-	close := builder.BuildAndStart()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	go func() {
+		builder.BuildAndStart(ctx)
+		done <- struct{}{}
+	}()
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -37,6 +46,8 @@ func main() {
 		wg.Done()
 	}()
 	wg.Wait()
+	time.Sleep(time.Second)
 
-	close()
+	cancel()
+	<-done
 }

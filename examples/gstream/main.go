@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 
@@ -31,16 +32,25 @@ func main() {
 		Foreach(func(s string) {
 			fmt.Println("merged:", s)
 		})
-		
+
 	go func() {
 		for s := range smallOutput {
 			fmt.Println("small:", s)
 		}
 	}()
 
-	close := builder.BuildAndStart()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	go func() {
+		builder.BuildAndStart(ctx)
+		done <- struct{}{}
+	}()
+
 	for i := 0; i < 20; i++ {
 		input <- rand.Int() % 20
 	}
-	close()
+
+	cancel()
+	<-done
 }
