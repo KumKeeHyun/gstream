@@ -15,30 +15,30 @@ type ProcessorSupplier[T, TR any] interface {
 
 // -------------------------------
 
-func newVoidProcessorSupplier[T, TR any]() *voidProcessorSupplier[T, TR] {
-	return &voidProcessorSupplier[T, TR]{}
+func newVoidSupplier[T, TR any]() *voidSupplier[T, TR] {
+	return &voidSupplier[T, TR]{}
 }
 
-type voidProcessorSupplier[T, TR any] struct{}
+type voidSupplier[T, TR any] struct{}
 
-var _ ProcessorSupplier[any, any] = &voidProcessorSupplier[any, any]{}
+var _ ProcessorSupplier[any, any] = &voidSupplier[any, any]{}
 
-func (p *voidProcessorSupplier[T, TR]) Processor(forwards ...Processor[TR]) Processor[T] {
+func (p *voidSupplier[T, TR]) Processor(_ ...Processor[TR]) Processor[T] {
 	return func(ctx context.Context, v T) {}
 }
 
 // -------------------------------
 
-func newFallThroughProcessorSupplier[T any]() *fallThroughProcessorSupplier[T] {
-	return &fallThroughProcessorSupplier[T]{}
+func newFallThroughSupplier[T any]() *fallThroughSupplier[T] {
+	return &fallThroughSupplier[T]{}
 }
 
-type fallThroughProcessorSupplier[T any] struct {
+type fallThroughSupplier[T any] struct {
 }
 
-var _ ProcessorSupplier[any, any] = &fallThroughProcessorSupplier[any]{}
+var _ ProcessorSupplier[any, any] = &fallThroughSupplier[any]{}
 
-func (p *fallThroughProcessorSupplier[T]) Processor(forwards ...Processor[T]) Processor[T] {
+func (p *fallThroughSupplier[T]) Processor(forwards ...Processor[T]) Processor[T] {
 	if len(forwards) == 1 {
 		return forwards[0]
 	}
@@ -51,19 +51,19 @@ func (p *fallThroughProcessorSupplier[T]) Processor(forwards ...Processor[T]) Pr
 
 // -------------------------------
 
-func newFilterProcessorSupplier[T any](filter func(T) bool) *filterProcessorSupplier[T] {
-	return &filterProcessorSupplier[T]{
+func newFilterSupplier[T any](filter func(T) bool) *filterSupplier[T] {
+	return &filterSupplier[T]{
 		filter: filter,
 	}
 }
 
-type filterProcessorSupplier[T any] struct {
+type filterSupplier[T any] struct {
 	filter func(T) bool
 }
 
-var _ ProcessorSupplier[any, any] = &filterProcessorSupplier[any]{}
+var _ ProcessorSupplier[any, any] = &filterSupplier[any]{}
 
-func (p *filterProcessorSupplier[T]) Processor(forwards ...Processor[T]) Processor[T] {
+func (p *filterSupplier[T]) Processor(forwards ...Processor[T]) Processor[T] {
 	return func(ctx context.Context, v T) {
 		if p.filter(v) {
 			for _, forward := range forwards {
@@ -75,19 +75,19 @@ func (p *filterProcessorSupplier[T]) Processor(forwards ...Processor[T]) Process
 
 // -------------------------------
 
-func newForeachProcessorSupplier[T any](foreacher func(T)) *foreachProcessorSupplier[T] {
-	return &foreachProcessorSupplier[T]{
+func newForeachSupplier[T any](foreacher func(T)) *foreachSupplier[T] {
+	return &foreachSupplier[T]{
 		foreacher: foreacher,
 	}
 }
 
-type foreachProcessorSupplier[T any] struct {
+type foreachSupplier[T any] struct {
 	foreacher func(T)
 }
 
-var _ ProcessorSupplier[any, any] = &foreachProcessorSupplier[any]{}
+var _ ProcessorSupplier[any, any] = &foreachSupplier[any]{}
 
-func (p *foreachProcessorSupplier[T]) Processor(forwards ...Processor[T]) Processor[T] {
+func (p *foreachSupplier[T]) Processor(_ ...Processor[T]) Processor[T] {
 	return func(ctx context.Context, v T) {
 		p.foreacher(v)
 	}
@@ -95,19 +95,19 @@ func (p *foreachProcessorSupplier[T]) Processor(forwards ...Processor[T]) Proces
 
 // -------------------------------
 
-func newMapProcessorSupplier[T, TR any](mapper func(T) TR) *mapProcessorSupplier[T, TR] {
-	return &mapProcessorSupplier[T, TR]{
+func newMapSupplier[T, TR any](mapper func(T) TR) *mapSupplier[T, TR] {
+	return &mapSupplier[T, TR]{
 		mapper: mapper,
 	}
 }
 
-type mapProcessorSupplier[T, TR any] struct {
+type mapSupplier[T, TR any] struct {
 	mapper func(T) TR
 }
 
-var _ ProcessorSupplier[any, any] = &mapProcessorSupplier[any, any]{}
+var _ ProcessorSupplier[any, any] = &mapSupplier[any, any]{}
 
-func (p *mapProcessorSupplier[T, TR]) Processor(forwards ...Processor[TR]) Processor[T] {
+func (p *mapSupplier[T, TR]) Processor(forwards ...Processor[TR]) Processor[T] {
 	return func(ctx context.Context, v T) {
 		for _, forward := range forwards {
 			forward(ctx, p.mapper(v))
@@ -117,19 +117,19 @@ func (p *mapProcessorSupplier[T, TR]) Processor(forwards ...Processor[TR]) Proce
 
 // -------------------------------
 
-func newFlatMapProcessorSupplier[T, TR any](flatMapper func(T) []TR) *flatMapProcessorSupplier[T, TR] {
-	return &flatMapProcessorSupplier[T, TR]{
+func newFlatMapSupplier[T, TR any](flatMapper func(T) []TR) *flatMapSupplier[T, TR] {
+	return &flatMapSupplier[T, TR]{
 		flatMapper: flatMapper,
 	}
 }
 
-type flatMapProcessorSupplier[T, TR any] struct {
+type flatMapSupplier[T, TR any] struct {
 	flatMapper func(T) []TR
 }
 
-var _ ProcessorSupplier[any, any] = &flatMapProcessorSupplier[any, any]{}
+var _ ProcessorSupplier[any, any] = &flatMapSupplier[any, any]{}
 
-func (p *flatMapProcessorSupplier[T, TR]) Processor(forwards ...Processor[TR]) Processor[T] {
+func (p *flatMapSupplier[T, TR]) Processor(forwards ...Processor[TR]) Processor[T] {
 	return func(ctx context.Context, v T) {
 		vrs := p.flatMapper(v)
 		for _, forward := range forwards {
@@ -142,21 +142,21 @@ func (p *flatMapProcessorSupplier[T, TR]) Processor(forwards ...Processor[TR]) P
 
 // -------------------------------
 
-func newSinkProcessorSupplier[T any](o chan T, d time.Duration) *sinkProcessorSupplier[T] {
-	return &sinkProcessorSupplier[T]{
+func newSinkSupplier[T any](o chan T, d time.Duration) *sinkSupplier[T] {
+	return &sinkSupplier[T]{
 		output:   o,
 		duration: d,
 	}
 }
 
-type sinkProcessorSupplier[T any] struct {
+type sinkSupplier[T any] struct {
 	output   chan T
 	duration time.Duration
 }
 
-var _ ProcessorSupplier[any, any] = &sinkProcessorSupplier[any]{}
+var _ ProcessorSupplier[any, any] = &sinkSupplier[any]{}
 
-func (p *sinkProcessorSupplier[T]) Processor(_ ...Processor[T]) Processor[T] {
+func (p *sinkSupplier[T]) Processor(_ ...Processor[T]) Processor[T] {
 	return func(ctx context.Context, v T) {
 		bomb := time.After(p.duration)
 		select {
@@ -173,19 +173,19 @@ func (p *sinkProcessorSupplier[T]) Processor(_ ...Processor[T]) Processor[T] {
 
 // -------------------------------
 
-func newBlockingSinkProcessorSupplier[T any](o chan T) *blockingSinkProcessorSupplier[T] {
-	return &blockingSinkProcessorSupplier[T]{
+func newBlockingSinkSupplier[T any](o chan T) *blockingSinkSupplier[T] {
+	return &blockingSinkSupplier[T]{
 		output: o,
 	}
 }
 
-type blockingSinkProcessorSupplier[T any] struct {
+type blockingSinkSupplier[T any] struct {
 	output chan T
 }
 
-var _ ProcessorSupplier[any, any] = &blockingSinkProcessorSupplier[any]{}
+var _ ProcessorSupplier[any, any] = &blockingSinkSupplier[any]{}
 
-func (p *blockingSinkProcessorSupplier[T]) Processor(_ ...Processor[T]) Processor[T] {
+func (p *blockingSinkSupplier[T]) Processor(_ ...Processor[T]) Processor[T] {
 	return func(ctx context.Context, v T) {
 		select {
 		case p.output <- v:
@@ -196,19 +196,19 @@ func (p *blockingSinkProcessorSupplier[T]) Processor(_ ...Processor[T]) Processo
 
 // -------------------------------
 
-func newStreamToTableProcessorSupplier[K, V any](kvstore state.KeyValueStore[K, V]) *streamToTableProcessorSupplier[K, V] {
-	return &streamToTableProcessorSupplier[K, V]{
+func newStreamToTableSupplier[K, V any](kvstore state.KeyValueStore[K, V]) *streamToTableSupplier[K, V] {
+	return &streamToTableSupplier[K, V]{
 		kvstore: kvstore,
 	}
 }
 
-type streamToTableProcessorSupplier[K, V any] struct {
+type streamToTableSupplier[K, V any] struct {
 	kvstore state.KeyValueStore[K, V]
 }
 
-var _ ProcessorSupplier[KeyValue[any, any], KeyValue[any, Change[any]]] = &streamToTableProcessorSupplier[any, any]{}
+var _ ProcessorSupplier[KeyValue[any, any], KeyValue[any, Change[any]]] = &streamToTableSupplier[any, any]{}
 
-func (p *streamToTableProcessorSupplier[K, V]) Processor(forwards ...Processor[KeyValue[K, Change[V]]]) Processor[KeyValue[K, V]] {
+func (p *streamToTableSupplier[K, V]) Processor(forwards ...Processor[KeyValue[K, Change[V]]]) Processor[KeyValue[K, V]] {
 	return func(ctx context.Context, kv KeyValue[K, V]) {
 		old, _ := p.kvstore.Get(kv.Key)
 		p.kvstore.Put(kv.Key, kv.Value)
@@ -223,16 +223,16 @@ func (p *streamToTableProcessorSupplier[K, V]) Processor(forwards ...Processor[K
 
 // -------------------------------
 
-func newTableToValueStreamProcessorSupplier[K, V any]() *tableToValueStreamProcessorSupplier[K, V] {
-	return &tableToValueStreamProcessorSupplier[K, V]{}
+func newTableToValueStreamSupplier[K, V any]() *tableToValueStreamSupplier[K, V] {
+	return &tableToValueStreamSupplier[K, V]{}
 }
 
-type tableToValueStreamProcessorSupplier[K, V any] struct {
+type tableToValueStreamSupplier[K, V any] struct {
 }
 
-var _ ProcessorSupplier[KeyValue[any, Change[any]], any] = &tableToValueStreamProcessorSupplier[any, any]{}
+var _ ProcessorSupplier[KeyValue[any, Change[any]], any] = &tableToValueStreamSupplier[any, any]{}
 
-func (p *tableToValueStreamProcessorSupplier[K, V]) Processor(forwards ...Processor[V]) Processor[KeyValue[K, Change[V]]] {
+func (p *tableToValueStreamSupplier[K, V]) Processor(forwards ...Processor[V]) Processor[KeyValue[K, Change[V]]] {
 	return func(ctx context.Context, ckv KeyValue[K, Change[V]]) {
 		for _, forward := range forwards {
 			forward(ctx, ckv.Value.NewValue)
@@ -242,16 +242,16 @@ func (p *tableToValueStreamProcessorSupplier[K, V]) Processor(forwards ...Proces
 
 // -------------------------------
 
-func newTableToStreamProcessorSupplier[K, V any]() *tableToStreamProcessorSupplier[K, V] {
-	return &tableToStreamProcessorSupplier[K, V]{}
+func newTableToStreamSupplier[K, V any]() *tableToStreamSupplier[K, V] {
+	return &tableToStreamSupplier[K, V]{}
 }
 
-type tableToStreamProcessorSupplier[K, V any] struct {
+type tableToStreamSupplier[K, V any] struct {
 }
 
-var _ ProcessorSupplier[KeyValue[any, Change[any]], KeyValue[any, any]] = &tableToStreamProcessorSupplier[any, any]{}
+var _ ProcessorSupplier[KeyValue[any, Change[any]], KeyValue[any, any]] = &tableToStreamSupplier[any, any]{}
 
-func (p *tableToStreamProcessorSupplier[K, V]) Processor(forwards ...Processor[KeyValue[K, V]]) Processor[KeyValue[K, Change[V]]] {
+func (p *tableToStreamSupplier[K, V]) Processor(forwards ...Processor[KeyValue[K, V]]) Processor[KeyValue[K, Change[V]]] {
 	return func(ctx context.Context, ckv KeyValue[K, Change[V]]) {
 		kv := NewKeyValue(ckv.Key, ckv.Value.NewValue)
 		for _, forward := range forwards {
@@ -262,21 +262,21 @@ func (p *tableToStreamProcessorSupplier[K, V]) Processor(forwards ...Processor[K
 
 // -------------------------------
 
-func newStreamTableJoinProcessorSupplier[K, V, VO, VR any](valueGetter func(K) (VO, error), joiner func(V, VO) VR) *streamTableJoinProcessorSupplier[K, V, VO, VR] {
-	return &streamTableJoinProcessorSupplier[K, V, VO, VR]{
+func newStreamTableJoinSupplier[K, V, VO, VR any](valueGetter func(K) (VO, error), joiner func(V, VO) VR) *streamTableJoinSupplier[K, V, VO, VR] {
+	return &streamTableJoinSupplier[K, V, VO, VR]{
 		valueGetter: valueGetter,
 		joiner:      joiner,
 	}
 }
 
-type streamTableJoinProcessorSupplier[K, V, VO, VR any] struct {
+type streamTableJoinSupplier[K, V, VO, VR any] struct {
 	valueGetter func(K) (VO, error)
 	joiner      func(V, VO) VR
 }
 
-var _ ProcessorSupplier[KeyValue[any, any], KeyValue[any, any]] = &streamTableJoinProcessorSupplier[any, any, any, any]{}
+var _ ProcessorSupplier[KeyValue[any, any], KeyValue[any, any]] = &streamTableJoinSupplier[any, any, any, any]{}
 
-func (p *streamTableJoinProcessorSupplier[K, V, VO, VR]) Processor(forwards ...Processor[KeyValue[K, VR]]) Processor[KeyValue[K, V]] {
+func (p *streamTableJoinSupplier[K, V, VO, VR]) Processor(forwards ...Processor[KeyValue[K, VR]]) Processor[KeyValue[K, V]] {
 	return func(ctx context.Context, kv KeyValue[K, V]) {
 		vo, err := p.valueGetter(kv.Key)
 		if err == nil {
@@ -290,23 +290,23 @@ func (p *streamTableJoinProcessorSupplier[K, V, VO, VR]) Processor(forwards ...P
 
 // -------------------------------
 
-func newStreamAggregateProcessorSupplier[K, V, VR any](initializer func() VR, aggregator func(KeyValue[K, V], VR) VR, kvstore state.KeyValueStore[K, VR]) *streamAggregateProcessorSupplier[K, V, VR] {
-	return &streamAggregateProcessorSupplier[K, V, VR]{
+func newStreamAggregateSupplier[K, V, VR any](initializer func() VR, aggregator func(KeyValue[K, V], VR) VR, kvstore state.KeyValueStore[K, VR]) *streamAggregateSupplier[K, V, VR] {
+	return &streamAggregateSupplier[K, V, VR]{
 		initializer: initializer,
 		aggregator:  aggregator,
 		kvstore:     kvstore,
 	}
 }
 
-type streamAggregateProcessorSupplier[K, V, VR any] struct {
+type streamAggregateSupplier[K, V, VR any] struct {
 	initializer func() VR
 	aggregator  func(KeyValue[K, V], VR) VR
 	kvstore     state.KeyValueStore[K, VR]
 }
 
-var _ ProcessorSupplier[KeyValue[any, any], KeyValue[any, Change[any]]] = &streamAggregateProcessorSupplier[any, any, any]{}
+var _ ProcessorSupplier[KeyValue[any, any], KeyValue[any, Change[any]]] = &streamAggregateSupplier[any, any, any]{}
 
-func (p *streamAggregateProcessorSupplier[K, V, VR]) Processor(forwards ...Processor[KeyValue[K, Change[VR]]]) Processor[KeyValue[K, V]] {
+func (p *streamAggregateSupplier[K, V, VR]) Processor(forwards ...Processor[KeyValue[K, Change[VR]]]) Processor[KeyValue[K, V]] {
 	return func(ctx context.Context, kv KeyValue[K, V]) {
 		oldAgg, err := p.kvstore.Get(kv.Key)
 		if err != nil { // TODO: error is not exists

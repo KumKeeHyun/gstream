@@ -46,7 +46,7 @@ type gstream[T any] struct {
 var _ GStream[any] = &gstream[any]{}
 
 func (s *gstream[T]) Filter(filter func(T) bool) GStream[T] {
-	filterSupplier := newFilterProcessorSupplier(filter)
+	filterSupplier := newFilterSupplier(filter)
 	filterNode := newProcessorNode[T, T](filterSupplier)
 	s.addChild(filterNode)
 
@@ -58,13 +58,13 @@ func (s *gstream[T]) Filter(filter func(T) bool) GStream[T] {
 }
 
 func (s *gstream[T]) Foreach(foreacher func(T)) {
-	foreachSupplier := newForeachProcessorSupplier(foreacher)
+	foreachSupplier := newForeachSupplier(foreacher)
 	foreachNode := newProcessorNode[T, T](foreachSupplier)
 	s.addChild(foreachNode)
 }
 
 func (s *gstream[T]) Map(mapper func(T) T) GStream[T] {
-	mapSupplier := newMapProcessorSupplier(mapper)
+	mapSupplier := newMapSupplier(mapper)
 	mapNode := newProcessorNode[T, T](mapSupplier)
 	s.addChild(mapNode)
 
@@ -76,7 +76,7 @@ func (s *gstream[T]) Map(mapper func(T) T) GStream[T] {
 }
 
 func (s *gstream[T]) FlatMap(flatMapper func(T) []T) GStream[T] {
-	flatMapNode := newProcessorNode[T, T](newFlatMapProcessorSupplier(flatMapper))
+	flatMapNode := newProcessorNode[T, T](newFlatMapSupplier(flatMapper))
 	s.addChild(flatMapNode)
 
 	return &gstream[T]{
@@ -103,7 +103,7 @@ func (s *gstream[T]) Merge(ms GStream[T]) GStream[T] {
 		}
 	}
 
-	passNode := newFallThroughProcessorNode[T]()
+	passNode := newFallThroughNode[T]()
 	s.addChild(passNode)
 	msImpl.addChild(passNode)
 
@@ -127,7 +127,7 @@ func (s *gstream[T]) Pipe() GStream[T] {
 
 func (s *gstream[T]) To() chan T {
 	sinkPipe := make(chan T)
-	sinkNode := newProcessorNode[T, T](newSinkProcessorSupplier(sinkPipe, time.Millisecond))
+	sinkNode := newProcessorNode[T, T](newSinkSupplier(sinkPipe, time.Millisecond))
 	s.addChild(sinkNode)
 
 	s.builder.sctx.add(newPipeCloser(sinkPipe))
@@ -137,7 +137,7 @@ func (s *gstream[T]) To() chan T {
 
 func (s *gstream[T]) ToWithBlocking() chan T {
 	sinkPipe := make(chan T)
-	sinkNode := newProcessorNode[T, T](newBlockingSinkProcessorSupplier(sinkPipe))
+	sinkNode := newProcessorNode[T, T](newBlockingSinkSupplier(sinkPipe))
 	s.addChild(sinkNode)
 
 	s.builder.sctx.add(newPipeCloser(sinkPipe))
@@ -146,7 +146,7 @@ func (s *gstream[T]) ToWithBlocking() chan T {
 }
 
 func (s *gstream[T]) to(pipe chan T, sourceNode *processorNode[T, T]) {
-	sinkNode := newProcessorNode[T, T](newBlockingSinkProcessorSupplier(pipe))
+	sinkNode := newProcessorNode[T, T](newBlockingSinkSupplier(pipe))
 	s.addChild(sinkNode)
 	addChild(sinkNode, sourceNode)
 
@@ -157,7 +157,7 @@ func (s *gstream[T]) to(pipe chan T, sourceNode *processorNode[T, T]) {
 
 func Map[T, TR any](s GStream[T], mapper func(T) TR) GStream[TR] {
 	sImpl := s.(*gstream[T])
-	mapSupplier := newMapProcessorSupplier(mapper)
+	mapSupplier := newMapSupplier(mapper)
 	mapNode := newProcessorNode[T, TR](mapSupplier)
 	castAddChild[T, TR](sImpl.addChild)(mapNode)
 
@@ -170,7 +170,7 @@ func Map[T, TR any](s GStream[T], mapper func(T) TR) GStream[TR] {
 
 func FlatMap[T, TR any](s GStream[T], flatMapper func(T) []TR) GStream[TR] {
 	sImpl := s.(*gstream[T])
-	flatMapNode := newProcessorNode[T, TR](newFlatMapProcessorSupplier(flatMapper))
+	flatMapNode := newProcessorNode[T, TR](newFlatMapSupplier(flatMapper))
 	castAddChild[T, TR](sImpl.addChild)(flatMapNode)
 
 	return &gstream[TR]{
@@ -313,7 +313,7 @@ func (kvs *keyValueGStream[K, V]) ToTable(mater materialized.Materialized[K, V])
 		kvs.builder.sctx.add(closer)
 	}
 
-	streamToTableSupplier := newStreamToTableProcessorSupplier(kvstore)
+	streamToTableSupplier := newStreamToTableSupplier(kvstore)
 	streamToTableNode := newStreamToTableNode(streamToTableSupplier)
 	castAddChild[KeyValue[K, V], KeyValue[K, Change[V]]](kvs.addChild)(streamToTableNode)
 
@@ -377,7 +377,7 @@ var _ JoinedGStream[any, any, any, any] = &joinedGStream[any, any, any, any]{}
 
 func (js *joinedGStream[K, V, VO, VR]) JoinTable(t GTable[K, VO], joiner func(V, VO) VR) KeyValueGStream[K, VR] {
 	valueGetter := t.(*gtable[K, VO]).valueGetter()
-	joinProcessorSupplier := newStreamTableJoinProcessorSupplier(valueGetter, joiner)
+	joinProcessorSupplier := newStreamTableJoinSupplier(valueGetter, joiner)
 	joinNode := newProcessorNode[KeyValue[K, V], KeyValue[K, VR]](joinProcessorSupplier)
 	js.addChild(joinNode)
 
@@ -399,7 +399,7 @@ func Aggregate[K, V, VR any](kvs KeyValueGStream[K, V], initializer func() VR, a
 		kvsImpl.builder.sctx.add(closer)
 	}
 
-	aggProcessorSupplier := newStreamAggregateProcessorSupplier(initializer, aggregator, kvstore)
+	aggProcessorSupplier := newStreamAggregateSupplier(initializer, aggregator, kvstore)
 	aggNode := newProcessorNode[KeyValue[K, V], KeyValue[K, Change[VR]]](aggProcessorSupplier)
 	castAddChild[KeyValue[K, V], KeyValue[K, Change[VR]]](kvsImpl.addChild)(aggNode)
 

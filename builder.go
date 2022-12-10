@@ -22,7 +22,7 @@ func NewBuilder() *builder {
 	return &builder{
 		nextInt: newNextInt(),
 		sctx:    newStreamContext(),
-		root:    newVoidProcessorNode[any](),
+		root:    newVoidNode[any, any](),
 	}
 }
 
@@ -38,7 +38,7 @@ func (b *builder) getRoutineID() GStreamID {
 
 func (b *builder) BuildAndStart(ctx context.Context) {
 	b.sctx.ctx = ctx
-	build(b.root)
+	buildAndStart(b.root)
 
 	b.sctx.wg.Wait()
 	b.sctx.cleanUp()
@@ -55,7 +55,7 @@ type streamBuilder[T any] struct {
 }
 
 func (sb *streamBuilder[T]) From(pipe chan T) GStream[T] {
-	voidNode := newProcessorNode[any, T](newVoidProcessorSupplier[any, T]())
+	voidNode := newVoidNode[any, T]()
 	addChild(sb.b.root, voidNode)
 	srcNode := newSourceNode(sb.b.getRoutineID(), sb.b.sctx, pipe, 1)
 	addChild(voidNode, srcNode)
@@ -67,15 +67,6 @@ func (sb *streamBuilder[T]) From(pipe chan T) GStream[T] {
 		rid:      srcNode.RoutineId(),
 		addChild: curryingAddChild[T, T, T](srcNode),
 	}
-}
-
-func (sb *streamBuilder[T]) SliceSource(slice []T) GStream[T] {
-	pipe := make(chan T, len(slice))
-	for _, v := range slice {
-		pipe <- v
-	}
-	// close(pipe)
-	return sb.From(pipe)
 }
 
 func Table[K, V any](b *builder) *tableBuilder[K, V] {

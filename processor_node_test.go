@@ -8,16 +8,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type mockProcessorSupplier[V, VR any] struct{}
+type mockSupplier[V, VR any] struct{}
 
-var _ ProcessorSupplier[any, any] = &mockProcessorSupplier[any, any]{}
+var _ ProcessorSupplier[any, any] = &mockSupplier[any, any]{}
 
-func (*mockProcessorSupplier[V, VR]) Processor(_ ...Processor[VR]) Processor[V] {
+func (*mockSupplier[V, VR]) Processor(_ ...Processor[VR]) Processor[V] {
 	return func(ctx context.Context, v V) {}
 }
 
-func newMockProcessorNode[V, VR any]() *processorNode[V, VR] {
-	return newProcessorNode[V, VR](&mockProcessorSupplier[V, VR]{})
+func newMockNode[V, VR any]() *processorNode[V, VR] {
+	return newProcessorNode[V, VR](&mockSupplier[V, VR]{})
 }
 
 func assertEqualPointer(t *testing.T, expected, actual any) {
@@ -25,9 +25,9 @@ func assertEqualPointer(t *testing.T, expected, actual any) {
 }
 
 func TestAddChildStraight(t *testing.T) {
-	first := newMockProcessorNode[int, string]()
-	second := newMockProcessorNode[string, int]()
-	third := newMockProcessorNode[int, float64]()
+	first := newMockNode[int, string]()
+	second := newMockNode[string, int]()
+	third := newMockNode[int, float64]()
 
 	addChild(first, second)
 	addChild(second, third)
@@ -44,9 +44,9 @@ func TestAddChildStraight(t *testing.T) {
 }
 
 func TestAddChildSplit(t *testing.T) {
-	first := newMockProcessorNode[int, string]()
-	second := newMockProcessorNode[string, int]()
-	third := newMockProcessorNode[string, float64]()
+	first := newMockNode[int, string]()
+	second := newMockNode[string, int]()
+	third := newMockNode[string, float64]()
 
 	addChild(first, second)
 	addChild(first, third)
@@ -61,9 +61,9 @@ func TestAddChildSplit(t *testing.T) {
 }
 
 func TestAddChildMerge(t *testing.T) {
-	first := newMockProcessorNode[int, string]()
-	second := newMockProcessorNode[int, string]()
-	third := newMockProcessorNode[string, float64]()
+	first := newMockNode[int, string]()
+	second := newMockNode[int, string]()
+	third := newMockNode[string, float64]()
 
 	addChild(first, third)
 	addChild(second, third)

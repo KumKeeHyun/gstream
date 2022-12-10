@@ -17,25 +17,19 @@ type gtable[K, V any] struct {
 var _ GTable[any, any] = &gtable[any, any]{}
 
 func (t *gtable[K, V]) ToValueStream() GStream[V] {
-	passNode := newFallThroughProcessorNode[KeyValue[K, Change[V]]]()
-	t.addChild(passNode)
-
-	tableToStreamNode := newTableToValueStreamNode[K, V]()
-	addChild(passNode, tableToStreamNode)
+	tableToValueStreamNode := newTableToValueStreamNode[K, V]()
+	castAddChild[KeyValue[K, Change[V]], V](t.addChild)(tableToValueStreamNode)
 
 	return &gstream[V]{
 		builder:  t.builder,
 		rid:      t.rid,
-		addChild: curryingAddChild[KeyValue[K, Change[V]], V, V](tableToStreamNode),
+		addChild: curryingAddChild[KeyValue[K, Change[V]], V, V](tableToValueStreamNode),
 	}
 }
 
 func (t *gtable[K, V]) ToStream() KeyValueGStream[K, V] {
-	passNode := newFallThroughProcessorNode[KeyValue[K, Change[V]]]()
-	t.addChild(passNode)
-
 	tableToStreamNode := newTableToStreamNode[K, V]()
-	addChild(passNode, tableToStreamNode)
+	castAddChild[KeyValue[K, Change[V]], KeyValue[K, V]](t.addChild)(tableToStreamNode)
 
 	currying := curryingAddChild[KeyValue[K, Change[V]], KeyValue[K, V], KeyValue[K, V]](tableToStreamNode)
 	return &keyValueGStream[K, V]{

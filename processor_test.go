@@ -12,7 +12,7 @@ import (
 
 func TestFallThroughProcessor(t *testing.T) {
 	var shouldBeEqualToV int
-	p := newFallThroughProcessorSupplier[int]().
+	p := newFallThroughSupplier[int]().
 		Processor(func(ctx context.Context, v int) {
 			shouldBeEqualToV = v
 		})
@@ -30,7 +30,7 @@ func TestFallThroughProcessor(t *testing.T) {
 
 func TestFilterProcessor(t *testing.T) {
 	var trueIfBiggerThan10 bool
-	p := newFilterProcessorSupplier(func(i int) bool {
+	p := newFilterSupplier(func(i int) bool {
 		return i > 10
 	}).Processor(func(ctx context.Context, v int) {
 		trueIfBiggerThan10 = true
@@ -49,7 +49,7 @@ func TestFilterProcessor(t *testing.T) {
 
 func TestMapProcessor(t *testing.T) {
 	var shouldBeItoa string
-	p := newMapProcessorSupplier(strconv.Itoa).
+	p := newMapSupplier(strconv.Itoa).
 		Processor(func(ctx context.Context, v string) {
 			shouldBeItoa = v
 		})
@@ -67,7 +67,7 @@ func TestMapProcessor(t *testing.T) {
 
 func TestFlatMapProcessor(t *testing.T) {
 	var shouldBeInc []int
-	p := newFlatMapProcessorSupplier(func(i int) []int {
+	p := newFlatMapSupplier(func(i int) []int {
 		res := make([]int, 0, i)
 		for n := 0; n < i; n++ {
 			res = append(res, n)
@@ -112,7 +112,7 @@ func TestStreamToTableProcessor(t *testing.T) {
 	var shouldBeEqual KeyValue[int, Change[int]]
 
 	mockKvs := &mockKvstore{map[int]int{}}
-	p := newStreamToTableProcessorSupplier[int, int](mockKvs).
+	p := newStreamToTableSupplier[int, int](mockKvs).
 		Processor(func(ctx context.Context, kv KeyValue[int, Change[int]]) {
 			shouldBeEqual = kv
 		})
@@ -141,7 +141,7 @@ func TestStreamTableJoinProcessor(t *testing.T) {
 	foundGetter := func(int) (int, error) { return 10, nil }
 	notFoundGetter := func(int) (int, error) { return 0, errors.New("mock error") }
 	joiner := func(v, vo int) int { return v + vo }
-	p := newStreamTableJoinProcessorSupplier(foundGetter, joiner).
+	p := newStreamTableJoinSupplier(foundGetter, joiner).
 		Processor(func(ctx context.Context, kv KeyValue[int, int]) {
 			shouldBeEqual = kv
 		})
@@ -157,7 +157,7 @@ func TestStreamTableJoinProcessor(t *testing.T) {
 
 	var trueIfProcessed bool
 
-	p = newStreamTableJoinProcessorSupplier(notFoundGetter, joiner).
+	p = newStreamTableJoinSupplier(notFoundGetter, joiner).
 		Processor(func(ctx context.Context, kv KeyValue[int, int]) {
 			trueIfProcessed = true
 		})
