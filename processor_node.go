@@ -1,19 +1,19 @@
 package gstream
 
 type processorNode[T, TR any] struct {
+	rid routineID
+
 	processor Processor[T]
 	supplier  ProcessorSupplier[T, TR]
 	forwards  func() []Processor[TR]
 
-	rid GStreamID
-
 	isSrc bool
 	sctx  *streamContext
-	pipe  chan T
+	pipe  <-chan T
 	pool  int
 }
 
-func (p *processorNode[_, _]) RoutineId() GStreamID {
+func (p *processorNode[_, _]) RoutineId() routineID {
 	return p.rid
 }
 
@@ -32,7 +32,7 @@ func newFallThroughNode[T any]() *processorNode[T, T] {
 	return newProcessorNode[T, T](newFallThroughSupplier[T]())
 }
 
-func newSourceNode[T any](rid GStreamID, sctx *streamContext, pipe chan T, pool int) *processorNode[T, T] {
+func newSourceNode[T any](rid routineID, sctx *streamContext, pipe <-chan T, pool int) *processorNode[T, T] {
 	node := newFallThroughNode[T]()
 	node.rid = rid
 	node.isSrc = true

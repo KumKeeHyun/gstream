@@ -9,7 +9,7 @@ type GTable[K, V any] interface {
 
 type gtable[K, V any] struct {
 	builder  *builder
-	rid      GStreamID
+	rid      routineID
 	kvstore  state.ReadOnlyKeyValueStore[K, V]
 	addChild func(*processorNode[KeyValue[K, Change[V]], KeyValue[K, Change[V]]])
 }

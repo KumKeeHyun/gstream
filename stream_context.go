@@ -9,14 +9,14 @@ type Closer interface {
 	Close() error
 }
 
-func newPipeCloser[T any](pipe chan T) Closer {
+func newPipeCloser[T any](pipe chan<- T) Closer {
 	return &pipeCloser[T]{
 		pipe: pipe,
 	}
 }
 
 type pipeCloser[T any] struct {
-	pipe chan T
+	pipe chan<- T
 }
 
 func (p *pipeCloser[T]) Close() (err error) {

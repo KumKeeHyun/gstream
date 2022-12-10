@@ -142,54 +142,39 @@ func (p *flatMapSupplier[T, TR]) Processor(forwards ...Processor[TR]) Processor[
 
 // -------------------------------
 
-func newSinkSupplier[T any](o chan T, d time.Duration) *sinkSupplier[T] {
+func newSinkSupplier[T any](pipe chan<- T, timeout time.Duration) *sinkSupplier[T] {
 	return &sinkSupplier[T]{
-		output:   o,
-		duration: d,
+		pipe:    pipe,
+		timeout: timeout,
 	}
 }
 
 type sinkSupplier[T any] struct {
-	output   chan T
-	duration time.Duration
+	pipe    chan<- T
+	timeout time.Duration
 }
 
 var _ ProcessorSupplier[any, any] = &sinkSupplier[any]{}
 
 func (p *sinkSupplier[T]) Processor(_ ...Processor[T]) Processor[T] {
-	return func(ctx context.Context, v T) {
-		bomb := time.After(p.duration)
-		select {
-		case p.output <- v:
-		case <-bomb:
-			log.Println("warnning: output channel is busy, ingore:", v)
-			return
-		case <-ctx.Done():
-			log.Println("output canceled")
-			return
+	if p.timeout <= 0 {
+		return func(ctx context.Context, v T) {
+			select {
+			case p.pipe <- v:
+			case <-ctx.Done():
+			}
 		}
 	}
-}
 
-// -------------------------------
-
-func newBlockingSinkSupplier[T any](o chan T) *blockingSinkSupplier[T] {
-	return &blockingSinkSupplier[T]{
-		output: o,
-	}
-}
-
-type blockingSinkSupplier[T any] struct {
-	output chan T
-}
-
-var _ ProcessorSupplier[any, any] = &blockingSinkSupplier[any]{}
-
-func (p *blockingSinkSupplier[T]) Processor(_ ...Processor[T]) Processor[T] {
 	return func(ctx context.Context, v T) {
+		t := time.NewTimer(p.timeout)
+		defer t.Stop()
+
 		select {
-		case p.output <- v:
+		case p.pipe <- v:
 		case <-ctx.Done():
+		case <-t.C:
+			log.Println("warnning: output channel is busy, ignore:", v)
 		}
 	}
 }

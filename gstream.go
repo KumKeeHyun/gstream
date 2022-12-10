@@ -1,9 +1,10 @@
 package gstream
 
 import (
+	"github.com/KumKeeHyun/gstream/options/pipe"
+	"github.com/KumKeeHyun/gstream/options/sink"
 	"github.com/KumKeeHyun/gstream/state"
 	"github.com/KumKeeHyun/gstream/state/materialized"
-	"time"
 )
 
 type GStream[T any] interface {
@@ -11,10 +12,9 @@ type GStream[T any] interface {
 	Foreach(func(T))
 	Map(func(T) T) GStream[T]
 	FlatMap(func(T) []T) GStream[T]
-	Merge(GStream[T]) GStream[T]
-	Pipe() GStream[T]
-	To() chan T
-	ToWithBlocking() chan T
+	Merge(GStream[T], ...pipe.Option) GStream[T]
+	Pipe(...pipe.Option) GStream[T]
+	To(...sink.Option) <-chan T
 }
 
 type KeyValueGStream[K, V any] interface {
@@ -24,8 +24,9 @@ type KeyValueGStream[K, V any] interface {
 	MapValues(func(V) V) KeyValueGStream[K, V]
 	FlatMap(func(K, V) []KeyValue[K, V]) KeyValueGStream[K, V]
 	FlatMapValues(func(V) []V) KeyValueGStream[K, V]
-	Merge(KeyValueGStream[K, V]) KeyValueGStream[K, V]
-	Pipe() KeyValueGStream[K, V]
+	Merge(KeyValueGStream[K, V], ...pipe.Option) KeyValueGStream[K, V]
+	Pipe(...pipe.Option) KeyValueGStream[K, V]
+	To(...sink.Option) <-chan KeyValue[K, V]
 
 	ToValueStream() GStream[V]
 	ToTable(materialized.Materialized[K, V]) GTable[K, V]
@@ -39,7 +40,7 @@ type JoinedGStream[K, V, VO, VR any] interface {
 
 type gstream[T any] struct {
 	builder  *builder
-	rid      GStreamID
+	rid      routineID
 	addChild func(*processorNode[T, T])
 }
 
@@ -86,71 +87,66 @@ func (s *gstream[T]) FlatMap(flatMapper func(T) []T) GStream[T] {
 	}
 }
 
-func (s *gstream[T]) Merge(ms GStream[T]) GStream[T] {
+func (s *gstream[T]) Merge(ms GStream[T], opts ...pipe.Option) GStream[T] {
 	msImpl := ms.(*gstream[T])
 
-	// create new routine
+	// create new routine if streams are in different routine.
 	if s.rid != msImpl.rid {
-		input := make(chan T)
-		newSrcNode := newSourceNode(s.builder.getRoutineID(), s.builder.sctx, input, 1)
-		s.to(input, newSrcNode)
-		msImpl.to(input, newSrcNode)
+		opt := newPipeOption[T](opts...)
+		p := opt.BuildPipe()
+
+		sinkNode := newProcessorNode[T, T](newSinkSupplier(p, 0))
+		s.addChild(sinkNode)
+		msImpl.addChild(sinkNode)
+
+		srcNode := newSourceNode(s.builder.getRoutineID(), s.builder.sctx, p, opt.WorkerPool())
+		addChild(sinkNode, srcNode)
 
 		return &gstream[T]{
 			builder:  s.builder,
-			rid:      newSrcNode.RoutineId(),
-			addChild: curryingAddChild[T, T, T](newSrcNode),
+			rid:      srcNode.RoutineId(),
+			addChild: curryingAddChild[T, T, T](srcNode),
 		}
 	}
 
-	passNode := newFallThroughNode[T]()
-	s.addChild(passNode)
-	msImpl.addChild(passNode)
+	mergeNode := newFallThroughNode[T]()
+	s.addChild(mergeNode)
+	msImpl.addChild(mergeNode)
 
 	return &gstream[T]{
 		builder:  s.builder,
-		addChild: curryingAddChild[T, T, T](passNode),
+		addChild: curryingAddChild[T, T, T](mergeNode),
 	}
 }
 
-func (s *gstream[T]) Pipe() GStream[T] {
-	pipe := make(chan T)
-	newSrcNode := newSourceNode(s.builder.getRoutineID(), s.builder.sctx, pipe, 1)
-	s.to(pipe, newSrcNode)
+func (s *gstream[T]) Pipe(opts ...pipe.Option) GStream[T] {
+	opt := newPipeOption[T](opts...)
+	p := opt.BuildPipe()
+
+	sinkNode := newProcessorNode[T, T](newSinkSupplier(p, 0))
+	s.addChild(sinkNode)
+
+	srcNode := newSourceNode(s.builder.getRoutineID(), s.builder.sctx, p, opt.WorkerPool())
+	addChild(sinkNode, srcNode)
+
+	s.builder.sctx.add(newPipeCloser(p))
 
 	return &gstream[T]{
 		builder:  s.builder,
-		rid:      newSrcNode.RoutineId(),
-		addChild: curryingAddChild[T, T, T](newSrcNode),
+		rid:      srcNode.RoutineId(),
+		addChild: curryingAddChild[T, T, T](srcNode),
 	}
 }
 
-func (s *gstream[T]) To() chan T {
-	sinkPipe := make(chan T)
-	sinkNode := newProcessorNode[T, T](newSinkSupplier(sinkPipe, time.Millisecond))
+func (s *gstream[T]) To(opts ...sink.Option) <-chan T {
+	opt := newSinkOption[T](opts...)
+	p := opt.BuildPipe()
+
+	sinkNode := newProcessorNode[T, T](newSinkSupplier(p, opt.Timeout()))
 	s.addChild(sinkNode)
+	s.builder.sctx.add(newPipeCloser(p))
 
-	s.builder.sctx.add(newPipeCloser(sinkPipe))
-
-	return sinkPipe
-}
-
-func (s *gstream[T]) ToWithBlocking() chan T {
-	sinkPipe := make(chan T)
-	sinkNode := newProcessorNode[T, T](newBlockingSinkSupplier(sinkPipe))
-	s.addChild(sinkNode)
-
-	s.builder.sctx.add(newPipeCloser(sinkPipe))
-
-	return sinkPipe
-}
-
-func (s *gstream[T]) to(pipe chan T, sourceNode *processorNode[T, T]) {
-	sinkNode := newProcessorNode[T, T](newBlockingSinkSupplier(pipe))
-	s.addChild(sinkNode)
-	addChild(sinkNode, sourceNode)
-
-	s.builder.sctx.add(newPipeCloser(pipe))
+	return p
 }
 
 // -------------------------------
@@ -194,7 +190,7 @@ func SelectKey[K, V any](s GStream[V], keySelecter func(V) K) KeyValueGStream[K,
 
 type keyValueGStream[K, V any] struct {
 	builder  *builder
-	rid      GStreamID
+	rid      routineID
 	addChild func(*processorNode[KeyValue[K, V], KeyValue[K, V]])
 }
 
@@ -280,9 +276,9 @@ func (kvs *keyValueGStream[K, V]) FlatMapValues(flatMapper func(V) []V) KeyValue
 	}
 }
 
-func (kvs *keyValueGStream[K, V]) Merge(mkvs KeyValueGStream[K, V]) KeyValueGStream[K, V] {
+func (kvs *keyValueGStream[K, V]) Merge(mkvs KeyValueGStream[K, V], opts ...pipe.Option) KeyValueGStream[K, V] {
 	mkvsImpl := mkvs.(*keyValueGStream[K, V]).gstream()
-	ms := kvs.gstream().Merge(mkvsImpl).(*gstream[KeyValue[K, V]])
+	ms := kvs.gstream().Merge(mkvsImpl, opts...).(*gstream[KeyValue[K, V]])
 
 	return &keyValueGStream[K, V]{
 		builder:  ms.builder,
@@ -291,14 +287,18 @@ func (kvs *keyValueGStream[K, V]) Merge(mkvs KeyValueGStream[K, V]) KeyValueGStr
 	}
 }
 
-func (kvs *keyValueGStream[K, V]) Pipe() KeyValueGStream[K, V] {
-	s := kvs.gstream().Pipe().(*gstream[KeyValue[K, V]])
+func (kvs *keyValueGStream[K, V]) Pipe(opts ...pipe.Option) KeyValueGStream[K, V] {
+	s := kvs.gstream().Pipe(opts...).(*gstream[KeyValue[K, V]])
 
 	return &keyValueGStream[K, V]{
 		builder:  s.builder,
 		rid:      s.rid,
 		addChild: s.addChild,
 	}
+}
+
+func (kvs *keyValueGStream[K, V]) To(opts ...sink.Option) <-chan KeyValue[K, V] {
+	return kvs.gstream().To(opts...)
 }
 
 func (kvs *keyValueGStream[K, V]) ToValueStream() GStream[V] {
@@ -369,7 +369,7 @@ func Joined[K, V, VO, VR any](kvs KeyValueGStream[K, V]) JoinedGStream[K, V, VO,
 
 type joinedGStream[K, V, VO, VR any] struct {
 	builder  *builder
-	rid      GStreamID
+	rid      routineID
 	addChild func(*processorNode[KeyValue[K, V], KeyValue[K, VR]])
 }
 

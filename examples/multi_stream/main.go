@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/KumKeeHyun/gstream/options/pipe"
+	"github.com/KumKeeHyun/gstream/options/sink"
 	"sync"
 	"time"
 
@@ -14,12 +16,13 @@ func main() {
 
 	input1 := make(chan int)
 	source1 := gstream.Stream[int](builder).From(input1)
-	source1.To()
+	source1.To(sink.WithTimeout(time.Millisecond))
 
 	input2 := make(chan int)
 	source2 := gstream.Stream[int](builder).From(input2)
 
-	source1.Merge(source2).Foreach(func(i int) {
+	source1.Merge(source2, pipe.WithWorkerPool(3)).Foreach(func(i int) {
+		time.Sleep(time.Second)
 		fmt.Println("merged", i)
 	})
 
