@@ -8,10 +8,13 @@ Kafka Streams DSL liked, Stream Processing Library abstracting pipelines pattern
 
 ## TODO
 
-- [x] aggregating
-- [ ] windowing
-- [ ] table-table join
-- [ ] boltDB kvstore
+- [x] Aggregating
+- [x] Backpressure
+- [x] BoltDB kvstore
+  - ⚠️ unstable
+- [ ] Error branch Stream
+- [ ] Windowing
+- [ ] Table-Table join
 
 ## Benchmark
 
@@ -74,19 +77,19 @@ source := gstream.Stream[int](builder).From(input)
 filteredBig := source.Filter(func(i int) bool {
 	return i > 10
 })
-mappedBig := gstream.Map(filteredBig, func(i int) string {
+mappedBig := gstream.Map(filteredBig, func(_ context.Context, i int) string {
 	return fmt.Sprintf("big-%d", i)
 })
 
 filteredSmall := source.Filter(func(i int) bool {
 	return i <= 10
 })
-mappedSmall := gstream.Map(filteredSmall, func(i int) string {
+mappedSmall := gstream.Map(filteredSmall, func(_ context.Context, i int) string {
 	return fmt.Sprintf("small-%d", i)
 })
 smallOutput := mappedSmall.To()
 mappedSmall.Merge(mappedBig).
-	Foreach(func(s string) {
+	Foreach(func(_ context.Context, s string) {
 		fmt.Println("merged:", s)
 	})
 ```
@@ -129,7 +132,7 @@ keyedNameStream := gstream.SelectKey(nameStream, nameKeySelector)
 gstream.Joined[int, UserName, UserAge, User](keyedNameStream).
 	JoinTable(ageTable, userJoiner).
 	ToValueStream().
-	Foreach(func(u User) {
+	Foreach(func(_ context.Context, u User) {
 		fmt.Println(u)
 	})
 
