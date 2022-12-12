@@ -30,7 +30,7 @@ func main() {
 	gstream.SelectKey(source, userSelectKey).
 		ToTable(userMater).
 		ToValueStream().
-		Foreach(func(u User) {
+		Foreach(func(_ context.Context, u User) {
 			fmt.Println(u)
 		})
 

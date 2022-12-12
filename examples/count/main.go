@@ -16,15 +16,15 @@ func main() {
 
 	input := make(chan string)
 	words := gstream.Stream[string](builder).From(input).
-		Map(func(s string) string {
+		Map(func(_ context.Context, s string) string {
 			return strings.TrimFunc(s, func(r rune) bool {
 				return !unicode.IsLetter(r)
 			})
 		}).
-		Map(func(s string) string {
+		Map(func(_ context.Context, s string) string {
 			return strings.ToLower(s)
 		}).
-		FlatMap(func(s string) []string {
+		FlatMap(func(_ context.Context, s string) []string {
 			return strings.Split(s, " ")
 		})
 	kvWords := gstream.SelectKey(words, func(w string) string {
@@ -39,7 +39,7 @@ func main() {
 	}
 	gstream.Count[string](kvWords, mater).
 		ToStream().
-		Foreach(func(w string, i int) {
+		Foreach(func(_ context.Context, w string, i int) {
 			fmt.Printf("word: %s, cnt: %d\n", w, i)
 		})
 

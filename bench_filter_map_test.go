@@ -95,8 +95,8 @@ func gstreamFilterMap(s []int) []int {
 	Stream[int](builder).
 		From(input).
 		Filter(func(i int) bool { return i%2 == 0 }).
-		Map(func(i int) int { return i * 2 }).
-		Foreach(func(i int) {
+		Map(func(_ context.Context, i int) int { return i * 2 }).
+		Foreach(func(_ context.Context, i int) {
 			res = append(res, i)
 		})
 
@@ -122,25 +122,25 @@ func gstreamFilterMap10Times(s []int) []int {
 	Stream[int](builder).
 		From(input).
 		Filter(func(i int) bool { return i%2 == 0 }).
-		Map(func(i int) int { return i * 2 }).
+		Map(func(_ context.Context, i int) int { return i * 2 }).
 		Filter(func(i int) bool { return i%2 == 0 }).
-		Map(func(i int) int { return i * 2 }).
+		Map(func(_ context.Context, i int) int { return i * 2 }).
 		Filter(func(i int) bool { return i%2 == 0 }).
-		Map(func(i int) int { return i * 2 }).
+		Map(func(_ context.Context, i int) int { return i * 2 }).
 		Filter(func(i int) bool { return i%2 == 0 }).
-		Map(func(i int) int { return i * 2 }).
+		Map(func(_ context.Context, i int) int { return i * 2 }).
 		Filter(func(i int) bool { return i%2 == 0 }).
-		Map(func(i int) int { return i * 2 }).
+		Map(func(_ context.Context, i int) int { return i * 2 }).
 		Filter(func(i int) bool { return i%2 == 0 }).
-		Map(func(i int) int { return i * 2 }).
+		Map(func(_ context.Context, i int) int { return i * 2 }).
 		Filter(func(i int) bool { return i%2 == 0 }).
-		Map(func(i int) int { return i * 2 }).
+		Map(func(_ context.Context, i int) int { return i * 2 }).
 		Filter(func(i int) bool { return i%2 == 0 }).
-		Map(func(i int) int { return i * 2 }).
+		Map(func(_ context.Context, i int) int { return i * 2 }).
 		Filter(func(i int) bool { return i%2 == 0 }).
-		Map(func(i int) int { return i * 2 }).
+		Map(func(_ context.Context, i int) int { return i * 2 }).
 		Filter(func(i int) bool { return i%2 == 0 }).
-		Foreach(func(i int) {
+		Foreach(func(_ context.Context, i int) {
 			res = append(res, i)
 		})
 

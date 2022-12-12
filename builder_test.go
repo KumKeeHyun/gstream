@@ -23,7 +23,9 @@ func TestCloseStream(t *testing.T) {
 	Table[int, string](builder).From(make(chan string),
 		func(s string) int { return 0 },
 		mater)
-	mergedStream := Map(intStream, strconv.Itoa).Merge(strStream)
+	mergedStream := Map(intStream, func(_ context.Context, d int) string {
+		return strconv.Itoa(d)
+	}).Merge(strStream)
 	mergedStream.Pipe()
 
 	ctx, cancel := context.WithCancel(context.Background())

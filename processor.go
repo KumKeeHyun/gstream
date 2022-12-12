@@ -75,34 +75,34 @@ func (p *filterSupplier[T]) Processor(forwards ...Processor[T]) Processor[T] {
 
 // -------------------------------
 
-func newForeachSupplier[T any](foreacher func(T)) *foreachSupplier[T] {
+func newForeachSupplier[T any](foreacher func(context.Context, T)) *foreachSupplier[T] {
 	return &foreachSupplier[T]{
 		foreacher: foreacher,
 	}
 }
 
 type foreachSupplier[T any] struct {
-	foreacher func(T)
+	foreacher func(context.Context, T)
 }
 
 var _ ProcessorSupplier[any, any] = &foreachSupplier[any]{}
 
 func (p *foreachSupplier[T]) Processor(_ ...Processor[T]) Processor[T] {
 	return func(ctx context.Context, v T) {
-		p.foreacher(v)
+		p.foreacher(ctx, v)
 	}
 }
 
 // -------------------------------
 
-func newMapSupplier[T, TR any](mapper func(T) TR) *mapSupplier[T, TR] {
+func newMapSupplier[T, TR any](mapper func(context.Context, T) TR) *mapSupplier[T, TR] {
 	return &mapSupplier[T, TR]{
 		mapper: mapper,
 	}
 }
 
 type mapSupplier[T, TR any] struct {
-	mapper func(T) TR
+	mapper func(context.Context, T) TR
 }
 
 var _ ProcessorSupplier[any, any] = &mapSupplier[any, any]{}
@@ -110,28 +110,28 @@ var _ ProcessorSupplier[any, any] = &mapSupplier[any, any]{}
 func (p *mapSupplier[T, TR]) Processor(forwards ...Processor[TR]) Processor[T] {
 	return func(ctx context.Context, v T) {
 		for _, forward := range forwards {
-			forward(ctx, p.mapper(v))
+			forward(ctx, p.mapper(ctx, v))
 		}
 	}
 }
 
 // -------------------------------
 
-func newFlatMapSupplier[T, TR any](flatMapper func(T) []TR) *flatMapSupplier[T, TR] {
+func newFlatMapSupplier[T, TR any](flatMapper func(context.Context, T) []TR) *flatMapSupplier[T, TR] {
 	return &flatMapSupplier[T, TR]{
 		flatMapper: flatMapper,
 	}
 }
 
 type flatMapSupplier[T, TR any] struct {
-	flatMapper func(T) []TR
+	flatMapper func(context.Context, T) []TR
 }
 
 var _ ProcessorSupplier[any, any] = &flatMapSupplier[any, any]{}
 
 func (p *flatMapSupplier[T, TR]) Processor(forwards ...Processor[TR]) Processor[T] {
 	return func(ctx context.Context, v T) {
-		vrs := p.flatMapper(v)
+		vrs := p.flatMapper(ctx, v)
 		for _, forward := range forwards {
 			for _, vr := range vrs {
 				forward(ctx, vr)

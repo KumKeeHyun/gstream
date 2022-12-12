@@ -58,7 +58,7 @@ func main() {
 	gstream.Joined[int, UserName, UserAge, User](keyedNameStream).
 		JoinTable(ageTable, userJoiner).
 		ToValueStream().
-		Foreach(func(u User) {
+		Foreach(func(_ context.Context, u User) {
 			fmt.Println(u)
 		})
 

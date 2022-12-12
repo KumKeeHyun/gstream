@@ -49,7 +49,7 @@ func main() {
 	}
 	gstream.Aggregate[int, User, *UserHistory](users, initializer, aggregator, userMater).
 		ToValueStream().
-		Foreach(func(uh *UserHistory) {
+		Foreach(func(_ context.Context, uh *UserHistory) {
 			fmt.Println(uh)
 		})
 
@@ -61,7 +61,7 @@ func main() {
 	}
 	gstream.Count(users, countMater).
 		ToStream().
-		Foreach(func(k, v int) {
+		Foreach(func(_ context.Context, k, v int) {
 			fmt.Println(k, v)
 		})
 

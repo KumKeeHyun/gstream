@@ -27,9 +27,9 @@ func main() {
 			return v.age > 25
 		}).Pipe()
 
-	gstream.KeyValueMap(half50Users, func(k int, v User) (string, User) {
+	gstream.KeyValueMap(half50Users, func(_ context.Context, k int, v User) (string, User) {
 		return strconv.Itoa(k), v
-	}).Foreach(func(k string, v User) {
+	}).Foreach(func(_ context.Context, k string, v User) {
 		fmt.Println("key:", k, ", value:", v)
 	})
 

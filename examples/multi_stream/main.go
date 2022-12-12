@@ -21,7 +21,7 @@ func main() {
 	input2 := make(chan int)
 	source2 := gstream.Stream[int](builder).From(input2)
 
-	source1.Merge(source2, pipe.WithWorkerPool(3)).Foreach(func(i int) {
+	source1.Merge(source2, pipe.WithWorkerPool(3)).Foreach(func(_ context.Context, i int) {
 		time.Sleep(time.Second)
 		fmt.Println("merged", i)
 	})

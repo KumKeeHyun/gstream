@@ -49,7 +49,9 @@ func TestFilterProcessor(t *testing.T) {
 
 func TestMapProcessor(t *testing.T) {
 	var shouldBeItoa string
-	p := newMapSupplier(strconv.Itoa).
+	p := newMapSupplier(func(_ context.Context, d int) string {
+		return strconv.Itoa(d)
+	}).
 		Processor(func(ctx context.Context, v string) {
 			shouldBeItoa = v
 		})
@@ -67,7 +69,7 @@ func TestMapProcessor(t *testing.T) {
 
 func TestFlatMapProcessor(t *testing.T) {
 	var shouldBeInc []int
-	p := newFlatMapSupplier(func(i int) []int {
+	p := newFlatMapSupplier(func(ctx context.Context, i int) []int {
 		res := make([]int, 0, i)
 		for n := 0; n < i; n++ {
 			res = append(res, n)
