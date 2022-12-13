@@ -61,8 +61,8 @@ func main() {
 	}
 	gstream.Count(users, countMater).
 		ToStream().
-		Foreach(func(_ context.Context, k, v int) {
-			fmt.Println(k, v)
+		Foreach(func(_ context.Context, kv gstream.KeyValue[int, int]) {
+			fmt.Println(kv.Key, kv.Value)
 		})
 
 	ctx, cancel := context.WithCancel(context.Background())

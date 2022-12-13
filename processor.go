@@ -247,7 +247,7 @@ func (p *tableToStreamSupplier[K, V]) Processor(forwards ...Processor[KeyValue[K
 
 // -------------------------------
 
-func newStreamTableJoinSupplier[K, V, VO, VR any](valueGetter func(K) (VO, error), joiner func(V, VO) VR) *streamTableJoinSupplier[K, V, VO, VR] {
+func newStreamTableJoinSupplier[K, V, VO, VR any](valueGetter func(K) (VO, error), joiner func(K, V, VO) VR) *streamTableJoinSupplier[K, V, VO, VR] {
 	return &streamTableJoinSupplier[K, V, VO, VR]{
 		valueGetter: valueGetter,
 		joiner:      joiner,
@@ -256,7 +256,7 @@ func newStreamTableJoinSupplier[K, V, VO, VR any](valueGetter func(K) (VO, error
 
 type streamTableJoinSupplier[K, V, VO, VR any] struct {
 	valueGetter func(K) (VO, error)
-	joiner      func(V, VO) VR
+	joiner      func(K, V, VO) VR
 }
 
 var _ ProcessorSupplier[KeyValue[any, any], KeyValue[any, any]] = &streamTableJoinSupplier[any, any, any, any]{}
@@ -265,7 +265,8 @@ func (p *streamTableJoinSupplier[K, V, VO, VR]) Processor(forwards ...Processor[
 	return func(ctx context.Context, kv KeyValue[K, V]) {
 		vo, err := p.valueGetter(kv.Key)
 		if err == nil {
-			jkv := NewKeyValue(kv.Key, p.joiner(kv.Value, vo))
+			// left inner join
+			jkv := NewKeyValue(kv.Key, p.joiner(kv.Key, kv.Value, vo))
 			for _, forward := range forwards {
 				forward(ctx, jkv)
 			}

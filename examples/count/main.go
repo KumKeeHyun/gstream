@@ -39,8 +39,8 @@ func main() {
 	}
 	gstream.Count[string](kvWords, mater).
 		ToStream().
-		Foreach(func(_ context.Context, w string, i int) {
-			fmt.Printf("word: %s, cnt: %d\n", w, i)
+		Foreach(func(_ context.Context, kv gstream.KeyValue[string, int]) {
+			fmt.Printf("word: %s, cnt: %d\n", kv.Key, kv.Value)
 		})
 
 	ctx, cancel := context.WithCancel(context.Background())

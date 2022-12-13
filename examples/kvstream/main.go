@@ -23,14 +23,14 @@ func main() {
 	source := gstream.Stream[User](builder).From(userInput)
 
 	half50Users := gstream.SelectKey(source, userKeySelector).
-		Filter(func(_ int, v User) bool {
-			return v.age > 25
+		Filter(func(kv gstream.KeyValue[int, User]) bool {
+			return kv.Value.age > 25
 		}).Pipe()
 
-	gstream.KeyValueMap(half50Users, func(_ context.Context, k int, v User) (string, User) {
-		return strconv.Itoa(k), v
-	}).Foreach(func(_ context.Context, k string, v User) {
-		fmt.Println("key:", k, ", value:", v)
+	gstream.KeyValueMap(half50Users, func(_ context.Context, kv gstream.KeyValue[int, User]) gstream.KeyValue[string, User] {
+		return gstream.NewKeyValue(strconv.Itoa(kv.Key), kv.Value)
+	}).Foreach(func(_ context.Context, kv gstream.KeyValue[string, User]) {
+		fmt.Println("key:", kv.Key, ", value:", kv.Value)
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())

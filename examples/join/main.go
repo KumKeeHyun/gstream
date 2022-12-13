@@ -28,9 +28,9 @@ type User struct {
 	age  int
 }
 
-var userJoiner = func(un UserName, ua UserAge) User {
+var userJoiner = func(id int, un UserName, ua UserAge) User {
 	return User{
-		id:   un.id,
+		id:   id,
 		name: un.name,
 		age:  ua.age,
 	}

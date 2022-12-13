@@ -142,7 +142,7 @@ func TestStreamTableJoinProcessor(t *testing.T) {
 
 	foundGetter := func(int) (int, error) { return 10, nil }
 	notFoundGetter := func(int) (int, error) { return 0, errors.New("mock error") }
-	joiner := func(v, vo int) int { return v + vo }
+	joiner := func(k, v, vo int) int { return v + vo }
 	p := newStreamTableJoinSupplier(foundGetter, joiner).
 		Processor(func(ctx context.Context, kv KeyValue[int, int]) {
 			shouldBeEqual = kv

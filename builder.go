@@ -80,7 +80,7 @@ type tableBuilder[K, V any] struct {
 	b *builder
 }
 
-func (tb *tableBuilder[K, V]) From(pipe chan V, selectKey func(V) K, mater materialized.Materialized[K, V], opts ...source.Option) GTable[K, V] {
+func (tb *tableBuilder[K, V]) From(pipe <-chan V, selectKey func(V) K, mater materialized.Materialized[K, V], opts ...source.Option) GTable[K, V] {
 	s := Stream[V](tb.b).From(pipe, opts...)
 	return SelectKey(s, selectKey).ToTable(mater)
 }
