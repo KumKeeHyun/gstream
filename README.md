@@ -22,7 +22,7 @@ Kafka Streams DSL liked, Stream Processing Library abstracting pipelines pattern
 
 ### GStream State Machine
 
-The GStream borrowed the concept of [Kafka Streams](https://docs.confluent.io/platform/current/streams/concepts.html#streams-concepts).
+The GStream has similar DSL of [Kafka Streams](https://docs.confluent.io/platform/current/streams/concepts.html#streams-concepts).
 The relationship between `Stream` and `Table` is exactly the same as Kafka Streams.
 One difference is that GStream has stream without a key.
 `KeyValueGStream` has same meaning as `KStream` of Kafka Streams
