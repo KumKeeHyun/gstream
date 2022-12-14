@@ -30,7 +30,7 @@ func NewBuilder() *builder {
 type builder struct {
 	nextInt nextInt
 	sctx    *streamContext
-	root    *processorNode[any, any]
+	root    *graphNode[any, any]
 }
 
 func (b *builder) getRoutineID() routineID {

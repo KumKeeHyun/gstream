@@ -61,7 +61,7 @@ type JoinedGStream[K, V, VO, VR any] interface {
 type gstream[T any] struct {
 	builder  *builder
 	rid      routineID
-	addChild func(*processorNode[T, T])
+	addChild func(*graphNode[T, T])
 }
 
 var _ GStream[any] = &gstream[any]{}
@@ -277,7 +277,7 @@ func newFailedGStream[T any](s GStream[Fail[T]]) *failedGStream[T] {
 type failedGStream[T any] struct {
 	builder  *builder
 	rid      routineID
-	addChild func(*processorNode[Fail[T], Fail[T]])
+	addChild func(*graphNode[Fail[T], Fail[T]])
 }
 
 var _ FailedGStream[any] = &failedGStream[any]{}
@@ -332,7 +332,7 @@ func SelectKey[K, V any](s GStream[V], keySelecter func(V) K) KeyValueGStream[K,
 type keyValueGStream[K, V any] struct {
 	builder  *builder
 	rid      routineID
-	addChild func(*processorNode[KeyValue[K, V], KeyValue[K, V]])
+	addChild func(*graphNode[KeyValue[K, V], KeyValue[K, V]])
 }
 
 var _ KeyValueGStream[any, any] = &keyValueGStream[any, any]{}
@@ -539,7 +539,7 @@ func KeyValueFlatMapValuesErr[K, V, VR any](kvs KeyValueGStream[K, V], flatMappe
 type failedKeyValueGStream[K, V any] struct {
 	builder  *builder
 	rid      routineID
-	addChild func(*processorNode[Fail[KeyValue[K, V]], Fail[KeyValue[K, V]]])
+	addChild func(*graphNode[Fail[KeyValue[K, V]], Fail[KeyValue[K, V]]])
 }
 
 var _ FailedKeyValueGStream[any, any] = &failedKeyValueGStream[any, any]{}
@@ -596,7 +596,7 @@ func Joined[K, V, VO, VR any](kvs KeyValueGStream[K, V]) JoinedGStream[K, V, VO,
 type joinedGStream[K, V, VO, VR any] struct {
 	builder  *builder
 	rid      routineID
-	addChild func(*processorNode[KeyValue[K, V], KeyValue[K, V]])
+	addChild func(*graphNode[KeyValue[K, V], KeyValue[K, V]])
 }
 
 var _ JoinedGStream[any, any, any, any] = &joinedGStream[any, any, any, any]{}

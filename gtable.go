@@ -11,7 +11,7 @@ type gtable[K, V any] struct {
 	builder  *builder
 	rid      routineID
 	kvstore  state.ReadOnlyKeyValueStore[K, V]
-	addChild func(*processorNode[KeyValue[K, Change[V]], KeyValue[K, Change[V]]])
+	addChild func(*graphNode[KeyValue[K, Change[V]], KeyValue[K, Change[V]]])
 }
 
 var _ GTable[any, any] = &gtable[any, any]{}

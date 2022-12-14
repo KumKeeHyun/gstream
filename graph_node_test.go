@@ -16,7 +16,7 @@ func (*mockSupplier[V, VR]) Processor(_ ...Processor[VR]) Processor[V] {
 	return func(ctx context.Context, v V) {}
 }
 
-func newMockNode[V, VR any]() *processorNode[V, VR] {
+func newMockNode[V, VR any]() *graphNode[V, VR] {
 	return newProcessorNode[V, VR](&mockSupplier[V, VR]{})
 }
 
