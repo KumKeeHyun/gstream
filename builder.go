@@ -33,16 +33,15 @@ type builder struct {
 	root    *graphNode[any, any]
 }
 
-func (b *builder) getRoutineID() routineID {
+func (b *builder) newRoutineID() routineID {
 	return routineID(fmt.Sprintf("routine-%d", b.nextInt()))
 }
 
 func (b *builder) BuildAndStart(ctx context.Context) {
 	b.sctx.ctx = ctx
 	buildAndStart(b.root)
-
 	b.sctx.wg.Wait()
-	b.sctx.cleanUp()
+	b.sctx.cleanUpStores()
 }
 
 func Stream[T any](b *builder) *streamBuilder[T] {
@@ -60,7 +59,7 @@ func (sb *streamBuilder[T]) From(pipe <-chan T, opts ...source.Option) GStream[T
 
 	voidNode := newVoidNode[any, T]()
 	addChild(sb.b.root, voidNode)
-	srcNode := newSourceNode(sb.b.getRoutineID(), sb.b.sctx, pipe, srcOpt.WorkerPool())
+	srcNode := newSourceNode(sb.b.newRoutineID(), sb.b.sctx, pipe, srcOpt.WorkerPool())
 	addChild(voidNode, srcNode)
 
 	return &gstream[T]{

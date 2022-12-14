@@ -31,7 +31,7 @@ func main() {
 
 	go func() {
 		builder.BuildAndStart(ctx)
-		done <- struct{}{}
+		close(done)
 	}()
 
 	var wg sync.WaitGroup
@@ -40,17 +40,20 @@ func main() {
 		for i := 0; i < 10; i++ {
 			input1 <- i
 		}
+		close(input1)
 		wg.Done()
 	}()
 	go func() {
 		for i := 100; i < 110; i++ {
 			input2 <- i
 		}
+		close(input2)
 		wg.Done()
 	}()
 	wg.Wait()
-	time.Sleep(time.Second)
+	//time.Sleep(time.Second)
+
+	<-done
 
 	cancel()
-	<-done
 }

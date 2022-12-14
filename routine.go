@@ -1,31 +1,8 @@
 package gstream
 
-import (
-	"context"
-	"sync"
-)
-
-type Option func(opts *Options)
-
-func WithBufferedChan(size int) Option {
-	return func(opts *Options) {
-		opts.bufSize = size
-	}
-}
-
-func WithWorkerPool(size int) Option {
-	return func(opts *Options) {
-		opts.poolSize = size
-	}
-}
-
-type Options struct {
-	bufSize  int
-	poolSize int
-}
-
-func newRoutine[T any](pipe <-chan T, poolSize int, processor Processor[T]) *routine[T] {
+func newRoutine[T any](rid routineID, pipe <-chan T, poolSize int, processor Processor[T]) *routine[T] {
 	return &routine[T]{
+		rid:      rid,
 		pipe:     pipe,
 		poolSize: poolSize,
 		process:  processor,
@@ -33,22 +10,25 @@ func newRoutine[T any](pipe <-chan T, poolSize int, processor Processor[T]) *rou
 }
 
 type routine[T any] struct {
+	rid      routineID
 	pipe     <-chan T
 	poolSize int
 	process  Processor[T]
 }
 
-func (r *routine[T]) run(ctx context.Context, wg *sync.WaitGroup) {
-	wg.Add(r.poolSize)
+func (r *routine[T]) run(sctx *streamContext) {
 	for i := 0; i < r.poolSize; i++ {
-		go worker(ctx, wg, r.pipe, r.process)
+		sctx.startRoutine(r.rid)
+		go worker(r.rid, sctx, r.pipe, r.process)
 	}
 }
 
-func worker[T any](ctx context.Context, wg *sync.WaitGroup, pipe <-chan T, process Processor[T]) {
+func worker[T any](rid routineID, sctx *streamContext, pipe <-chan T, process Processor[T]) {
 	defer func() {
-		wg.Done()
+		sctx.doneRoutine(rid)
 	}()
+
+	ctx := sctx.ctx
 	for {
 		select {
 		case d, ok := <-pipe:
@@ -56,12 +36,7 @@ func worker[T any](ctx context.Context, wg *sync.WaitGroup, pipe <-chan T, proce
 				return
 			}
 
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				process(ctx, d)
-			}
+			process(ctx, d)
 		case <-ctx.Done():
 			return
 		}

@@ -85,8 +85,8 @@ func buildAndStart[T, TR any](n *graphNode[T, TR]) Processor[T] {
 		n.processor = n.supplier.Processor(n.forwards()...)
 
 		if n.isSrc {
-			r := newRoutine(n.pipe, n.pool, n.processor)
-			r.run(n.sctx.ctx, n.sctx.wg)
+			r := newRoutine(n.rid, n.pipe, n.pool, n.processor)
+			r.run(n.sctx)
 		}
 	}
 

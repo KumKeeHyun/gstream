@@ -6,23 +6,23 @@ import (
 	"fmt"
 	"github.com/KumKeeHyun/gstream/state/materialized"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/goleak"
 	"testing"
-	"time"
 )
 
 func TestMapErr(t *testing.T) {
-	b := NewBuilder()
+	go goleak.VerifyNone(t)
 
 	ch := make(chan int, 5)
-	ch <- 1
-	ch <- 2
-	ch <- 3
-	ch <- 4
-	ch <- 5
+	for i := 1; i <= 5; i++ {
+		ch <- i
+	}
 	close(ch)
 
-	res := make([]int, 0, 4)
+	b := NewBuilder()
 	src := Stream[int](b).From(ch)
+
+	res := make([]int, 0, 4)
 	mapped, _ := MapErr[int, int](src, func(_ context.Context, i int) (int, error) {
 		if i == 3 {
 			return 0, errors.New("mock error")
@@ -33,32 +33,23 @@ func TestMapErr(t *testing.T) {
 		res = append(res, i)
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() {
-		b.BuildAndStart(ctx)
-		done <- struct{}{}
-	}()
-
-	time.Sleep(time.Millisecond)
-	cancel()
-
+	b.BuildAndStart(context.Background())
 	assert.ElementsMatch(t, []int{1, 4, 16, 25}, res)
 }
 
 func TestKeyValueGStream_MapErr(t *testing.T) {
-	b := NewBuilder()
+	go goleak.VerifyNone(t)
 
 	ch := make(chan int, 5)
-	ch <- 1
-	ch <- 2
-	ch <- 3
-	ch <- 4
-	ch <- 5
+	for i := 1; i <= 5; i++ {
+		ch <- i
+	}
 	close(ch)
 
-	res := make([]int, 0, 4)
+	b := NewBuilder()
 	src := Stream[int](b).From(ch)
+
+	res := make([]int, 0, 4)
 	mapped, _ := SelectKey(src, func(i int) int { return i }).
 		MapErr(func(_ context.Context, kv KeyValue[int, int]) (KeyValue[int, int], error) {
 			if kv.Key == 3 {
@@ -70,29 +61,35 @@ func TestKeyValueGStream_MapErr(t *testing.T) {
 		res = append(res, kv.Value)
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() {
-		b.BuildAndStart(ctx)
-		done <- struct{}{}
-	}()
-
-	time.Sleep(time.Millisecond)
-	cancel()
-
+	b.BuildAndStart(context.Background())
 	assert.ElementsMatch(t, []int{1, 4, 16, 25}, res)
 }
 
 func TestJoinedGStream_JoinTableErr(t *testing.T) {
-	b := NewBuilder()
+	go goleak.VerifyNone(t)
 
-	sc := make(chan int)
+	sc := make(chan int, 4)
+	sc <- 1
+	sc <- 2
+	sc <- 3
+	sc <- 4
+	close(sc)
+
+	tc := make(chan int, 4)
+	tc <- 1
+	tc <- 2
+	tc <- 3
+	tc <- 4
+	close(tc)
+
+	b := NewBuilder()
 	ssrc := Stream[int](b).From(sc)
 
-	tc := make(chan int)
 	selectKey := func(i int) int { return i }
 	mater, _ := materialized.New(materialized.WithInMemory[int, int]())
-	tsrc := Table[int, int](b).From(tc, selectKey, mater)
+	tsrc := Table[int, int](b).From(tc,
+		selectKey,
+		mater)
 
 	joined, failed := Joined[int, int, int, string](SelectKey[int, int](ssrc, selectKey)).
 		JoinTableErr(tsrc, func(k, v, vo int) (string, error) {
@@ -113,25 +110,7 @@ func TestJoinedGStream_JoinTableErr(t *testing.T) {
 		fail = append(fail, err)
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() {
-		b.BuildAndStart(ctx)
-		done <- struct{}{}
-	}()
-
-	tc <- 1
-	tc <- 2
-	tc <- 3
-	tc <- 4
-
-	sc <- 1
-	sc <- 2
-	sc <- 3
-	sc <- 4
-	time.Sleep(time.Millisecond)
-	cancel()
-
+	b.BuildAndStart(context.Background())
 	assert.Equal(t, 2, len(success))
 	assert.Equal(t, 2, len(fail))
 }

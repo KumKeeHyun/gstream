@@ -107,12 +107,15 @@ func (s *gstream[T]) Merge(ms GStream[T], opts ...pipe.Option) GStream[T] {
 	if s.rid != msImpl.rid {
 		opt := newPipeOption[T](opts...)
 		p := opt.BuildPipe()
+		pc := newPipeCloser(p)
 
 		sinkNode := newProcessorNode[T, T](newSinkSupplier(p, 0))
 		s.addChild(sinkNode)
+		s.builder.sctx.addPipe(s.rid, pc)
 		msImpl.addChild(sinkNode)
+		s.builder.sctx.addPipe(msImpl.rid, pc)
 
-		srcNode := newSourceNode(s.builder.getRoutineID(), s.builder.sctx, p, opt.WorkerPool())
+		srcNode := newSourceNode(s.builder.newRoutineID(), s.builder.sctx, p, opt.WorkerPool())
 		addChild(sinkNode, srcNode)
 
 		return &gstream[T]{
@@ -138,11 +141,10 @@ func (s *gstream[T]) Pipe(opts ...pipe.Option) GStream[T] {
 
 	sinkNode := newProcessorNode[T, T](newSinkSupplier(p, 0))
 	s.addChild(sinkNode)
+	s.builder.sctx.addPipe(s.rid, newPipeCloser(p))
 
-	srcNode := newSourceNode(s.builder.getRoutineID(), s.builder.sctx, p, opt.WorkerPool())
+	srcNode := newSourceNode(s.builder.newRoutineID(), s.builder.sctx, p, opt.WorkerPool())
 	addChild(sinkNode, srcNode)
-
-	s.builder.sctx.add(newPipeCloser(p))
 
 	return &gstream[T]{
 		builder:  s.builder,
@@ -154,10 +156,10 @@ func (s *gstream[T]) Pipe(opts ...pipe.Option) GStream[T] {
 func (s *gstream[T]) To(opts ...sink.Option) <-chan T {
 	opt := newSinkOption[T](opts...)
 	p := opt.BuildPipe()
+	s.builder.sctx.addPipe(s.rid, newPipeCloser(p))
 
 	sinkNode := newProcessorNode[T, T](newSinkSupplier(p, opt.Timeout()))
 	s.addChild(sinkNode)
-	s.builder.sctx.add(newPipeCloser(p))
 
 	return p
 }
@@ -425,7 +427,7 @@ func (kvs *keyValueGStream[K, V]) ToValueStream() GStream[V] {
 func (kvs *keyValueGStream[K, V]) ToTable(mater materialized.Materialized[K, V]) GTable[K, V] {
 	kvstore := state.NewKeyValueStore(mater)
 	if closer, ok := kvstore.(Closer); ok {
-		kvs.builder.sctx.add(closer)
+		kvs.builder.sctx.addStore(closer)
 	}
 
 	streamToTableSupplier := newStreamToTableSupplier(kvstore)
@@ -660,7 +662,7 @@ func Aggregate[K, V, VR any](kvs KeyValueGStream[K, V], initializer func() VR, a
 
 	kvstore := state.NewKeyValueStore(mater)
 	if closer, ok := kvstore.(Closer); ok {
-		kvsImpl.builder.sctx.add(closer)
+		kvsImpl.builder.sctx.addStore(closer)
 	}
 
 	aggProcessorSupplier := newStreamAggregateSupplier(initializer, aggregator, kvstore)
