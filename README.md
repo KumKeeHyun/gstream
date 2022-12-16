@@ -35,13 +35,11 @@ The failure stream is stream for arguments and errors of the failed operation.
 graph TD
     A(GStream) -->|'SelectKey| B(KeyValueGStream)
     A -->|Filter, ''Map, Merge, Pipe| A
-    B -->|Filter, ''Map, Merge, Pipe| B
+    B -->|Filter, ''Map, Merge, Pipe, Join| B
     B -->|ToValueStream| A
     B -->|ToTable, 'Aggregate, 'Count| C(GTable)
     C -->|ToStream| B
     C -->|ToValueStream| A
-    B -->|'Joined| D(JoinedGStream)
-    D -->|JoinTable| B
     A -->|''MapErr| E(FailedGStream)
     E -->|Filter| E
     E -->|ToStream| A
@@ -56,7 +54,6 @@ graph TD
     end
     subgraph KeyValueGStream
     B
-    D
     subgraph SideEffect'
     F
     end

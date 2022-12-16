@@ -91,14 +91,14 @@ func TestJoinedGStream_JoinTableErr(t *testing.T) {
 		selectKey,
 		mater)
 
-	joined, failed := Joined[int, int, int, string](SelectKey[int, int](ssrc, selectKey)).
-		JoinTableErr(tsrc, func(k, v, vo int) (string, error) {
-			if k%2 == 0 {
-				return fmt.Sprintf("key: %d, value: %d, valueOut: %d", k, v, vo), nil
-			} else {
-				return "", errors.New("mock error")
-			}
-		})
+
+	joined, failed := JoinStreamTableErr[int, int, int, string](SelectKey[int, int](ssrc, selectKey), tsrc, func(k, v, vo int) (string, error) {
+		if k%2 == 0 {
+			return fmt.Sprintf("key: %d, value: %d, valueOut: %d", k, v, vo), nil
+		} else {
+			return "", errors.New("mock error")
+		}
+	})
 
 	success := make([]string, 0)
 	joined.Foreach(func(_ context.Context, kv KeyValue[int, string]) {

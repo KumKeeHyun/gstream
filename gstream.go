@@ -586,73 +586,62 @@ func (fkvs *failedKeyValueGStream[K, V]) ToStream() KeyValueGStream[K, V] {
 
 // -------------------------------
 
-func Joined[K, V, VO, VR any](kvs KeyValueGStream[K, V]) JoinedGStream[K, V, VO, VR] {
-	kvsImpl := kvs.(*keyValueGStream[K, V])
-	return &joinedGStream[K, V, VO, VR]{
-		builder:  kvsImpl.builder,
-		rid:      kvsImpl.rid,
-		addChild: kvsImpl.addChild,
-	}
-}
-
-type joinedGStream[K, V, VO, VR any] struct {
-	builder  *builder
-	rid      routineID
-	addChild func(*graphNode[KeyValue[K, V], KeyValue[K, V]])
-}
-
-var _ JoinedGStream[any, any, any, any] = &joinedGStream[any, any, any, any]{}
-
-func (js *joinedGStream[K, V, VO, VR]) JoinTable(t GTable[K, VO], joiner func(K, V, VO) VR) KeyValueGStream[K, VR] {
+func JoinStreamTable[K, V, VO, VR any](s KeyValueGStream[K, V], t GTable[K, VO], joiner func(K, V, VO) VR) KeyValueGStream[K, VR] {
+	sImpl := s.(*keyValueGStream[K, V])
 	valueGetter := t.(*gtable[K, VO]).valueGetter()
 	joinSupplier := newStreamTableJoinSupplier(valueGetter, joiner)
 	joinNode := newProcessorNode[KeyValue[K, V], KeyValue[K, VR]](joinSupplier)
-	castAddChild[KeyValue[K, V], KeyValue[K, VR]](js.addChild)(joinNode)
+	castAddChild[KeyValue[K, V], KeyValue[K, VR]](sImpl.addChild)(joinNode)
 
 	currying := curryingAddChild[KeyValue[K, V], KeyValue[K, VR], KeyValue[K, VR]](joinNode)
 	return &keyValueGStream[K, VR]{
-		builder:  js.builder,
-		rid:      js.rid,
+		builder:  sImpl.builder,
+		rid:      sImpl.rid,
 		addChild: currying,
 	}
 }
 
-func (js *joinedGStream[K, V, VO, VR]) JoinTableErr(t GTable[K, VO], joiner func(K, V, VO) (VR, error)) (kvs KeyValueGStream[K, VR], fkvs FailedKeyValueGStream[K, V]) {
-	joined := js.joinTable(t, func(k K, v V, vo VO) result[KeyValue[K, V], KeyValue[K, VR]] {
+func JoinStreamTableErr[K, V, VO, VR any](s KeyValueGStream[K, V], t GTable[K, VO], joiner func(K, V, VO) (VR, error)) (rs KeyValueGStream[K, VR], fs FailedKeyValueGStream[K, V]) {
+	sImpl := s.(*keyValueGStream[K, V])
+	valueGetter := t.(*gtable[K, VO]).valueGetter()
+	joinSupplier := newStreamTableJoinSupplier[K, V, VO, result[KeyValue[K, V], KeyValue[K, VR]]](valueGetter, func(k K, v V, vo VO) result[KeyValue[K, V], KeyValue[K, VR]] {
 		vr, err := joiner(k, v, vo)
 		return result[KeyValue[K, V], KeyValue[K, VR]]{NewKeyValue(k, v), NewKeyValue(k, vr), err}
 	})
-
-	success := joined.Filter(func(r KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]) bool { return r.Value.err == nil })
-	kvs = KeyValueMap(success, func(_ context.Context, kv KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]) KeyValue[K, VR] {
-		return kv.Value.success()
-	})
-
-	fail := joined.Filter(func(r KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]) bool { return r.Value.err != nil })
-	fts := KeyValueMapValues(fail, func(_ context.Context, r result[KeyValue[K, V], KeyValue[K, VR]]) Fail[KeyValue[K, V]] {
-		return r.fail()
-	}).ToValueStream().(*gstream[Fail[KeyValue[K, V]]])
-	fkvs = &failedKeyValueGStream[K, V]{
-		builder:  fts.builder,
-		rid:      fts.rid,
-		addChild: fts.addChild,
-	}
-
-	return
-}
-
-func (js *joinedGStream[K, V, VO, VR]) joinTable(t GTable[K, VO], joiner func(K, V, VO) result[KeyValue[K, V], KeyValue[K, VR]]) KeyValueGStream[K, result[KeyValue[K, V], KeyValue[K, VR]]] {
-	valueGetter := t.(*gtable[K, VO]).valueGetter()
-	joinSupplier := newStreamTableJoinSupplier(valueGetter, joiner)
 	joinNode := newProcessorNode[KeyValue[K, V], KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]](joinSupplier)
-	castAddChild[KeyValue[K, V], KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]](js.addChild)(joinNode)
+	castAddChild[KeyValue[K, V], KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]](sImpl.addChild)(joinNode)
 
-	currying := curryingAddChild[KeyValue[K, V], KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]], KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]](joinNode)
-	return &keyValueGStream[K, result[KeyValue[K, V], KeyValue[K, VR]]]{
-		builder:  js.builder,
-		rid:      js.rid,
-		addChild: currying,
-	}
+	sfs := newFilterSupplier[KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]](func(r KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]) bool {
+		return r.Value.err == nil
+	})
+	sfn := newProcessorNode[KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]], KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]](sfs)
+	addChild(joinNode, sfn)
+	sms := newMapSupplier[KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]], KeyValue[K, VR]](func(_ context.Context, r KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]) KeyValue[K, VR] {
+		return r.Value.success()
+	})
+	smn := newProcessorNode[KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]], KeyValue[K, VR]](sms)
+	addChild(sfn, smn)
+
+	ffs := newFilterSupplier[KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]](func(r KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]) bool {
+		return r.Value.err != nil
+	})
+	ffn := newProcessorNode[KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]], KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]](ffs)
+	addChild(joinNode, ffn)
+	fms := newMapSupplier[KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]], Fail[KeyValue[K, V]]](func(_ context.Context, r KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]]) Fail[KeyValue[K, V]] {
+		return r.Value.fail()
+	})
+	fmn := newProcessorNode[KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]], Fail[KeyValue[K, V]]](fms)
+	addChild(ffn, fmn)
+
+	return &keyValueGStream[K, VR]{
+			builder:  sImpl.builder,
+			rid:      sImpl.rid,
+			addChild: curryingAddChild[KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]], KeyValue[K, VR], KeyValue[K, VR]](smn),
+		}, &failedKeyValueGStream[K, V]{
+			builder:  sImpl.builder,
+			rid:      sImpl.rid,
+			addChild: curryingAddChild[KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]], Fail[KeyValue[K, V]], Fail[KeyValue[K, V]]](fmn),
+		}
 }
 
 // -------------------------------
