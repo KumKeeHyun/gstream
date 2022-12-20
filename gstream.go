@@ -1,3 +1,4 @@
+// Package gstream is stream processing library
 package gstream
 
 import (
@@ -352,35 +353,35 @@ func (kvs *keyValueGStream[K, V]) Foreach(foreacher func(context.Context, KeyVal
 }
 
 func (kvs *keyValueGStream[K, V]) Map(mapper func(context.Context, KeyValue[K, V]) KeyValue[K, V]) KeyValueGStream[K, V] {
-	return KeyValueMap[K, V, K, V](kvs, mapper)
+	return KVMap[K, V, K, V](kvs, mapper)
 }
 
 func (kvs *keyValueGStream[K, V]) MapErr(mapper func(context.Context, KeyValue[K, V]) (KeyValue[K, V], error)) (KeyValueGStream[K, V], FailedKeyValueGStream[K, V]) {
-	return KeyValueMapErr[K, V, K, V](kvs, mapper)
+	return KVMapErr[K, V, K, V](kvs, mapper)
 }
 
 func (kvs *keyValueGStream[K, V]) MapValues(mapper func(context.Context, V) V) KeyValueGStream[K, V] {
-	return KeyValueMapValues[K, V, V](kvs, mapper)
+	return KVMapValues[K, V, V](kvs, mapper)
 }
 
 func (kvs *keyValueGStream[K, V]) MapValuesErr(mapper func(context.Context, V) (V, error)) (KeyValueGStream[K, V], FailedKeyValueGStream[K, V]) {
-	return KeyValueMapValuesErr[K, V, V](kvs, mapper)
+	return KVMapValuesErr[K, V, V](kvs, mapper)
 }
 
 func (kvs *keyValueGStream[K, V]) FlatMap(flatMapper func(context.Context, KeyValue[K, V]) []KeyValue[K, V]) KeyValueGStream[K, V] {
-	return KeyValueFlatMap[K, V, K, V](kvs, flatMapper)
+	return KVFlatMap[K, V, K, V](kvs, flatMapper)
 }
 
 func (kvs *keyValueGStream[K, V]) FlatMapErr(flatMapper func(context.Context, KeyValue[K, V]) ([]KeyValue[K, V], error)) (KeyValueGStream[K, V], FailedKeyValueGStream[K, V]) {
-	return KeyValueFlatMapErr[K, V, K, V](kvs, flatMapper)
+	return KVFlatMapErr[K, V, K, V](kvs, flatMapper)
 }
 
 func (kvs *keyValueGStream[K, V]) FlatMapValues(flatMapper func(context.Context, V) []V) KeyValueGStream[K, V] {
-	return KeyValueFlatMapValues[K, V, V](kvs, flatMapper)
+	return KVFlatMapValues[K, V, V](kvs, flatMapper)
 }
 
 func (kvs *keyValueGStream[K, V]) FlatMapValuesErr(flatMapper func(context.Context, V) ([]V, error)) (KeyValueGStream[K, V], FailedKeyValueGStream[K, V]) {
-	return KeyValueFlatMapValuesErr[K, V, V](kvs, flatMapper)
+	return KVFlatMapValuesErr[K, V, V](kvs, flatMapper)
 }
 
 func (kvs *keyValueGStream[K, V]) Merge(mkvs KeyValueGStream[K, V], opts ...pipe.Option) KeyValueGStream[K, V] {
@@ -435,7 +436,7 @@ func (kvs *keyValueGStream[K, V]) ToTable(sopt state.Options[K, V]) GTable[K, V]
 
 // -------------------------------
 
-func KeyValueMap[K, V, KR, VR any](kvs KeyValueGStream[K, V], mapper func(context.Context, KeyValue[K, V]) KeyValue[KR, VR]) KeyValueGStream[KR, VR] {
+func KVMap[K, V, KR, VR any](kvs KeyValueGStream[K, V], mapper func(context.Context, KeyValue[K, V]) KeyValue[KR, VR]) KeyValueGStream[KR, VR] {
 	kvsImpl := kvs.(*keyValueGStream[K, V]).gstream()
 	mkvs := Map[KeyValue[K, V], KeyValue[KR, VR]](kvsImpl, mapper).(*gstream[KeyValue[KR, VR]])
 
@@ -446,7 +447,7 @@ func KeyValueMap[K, V, KR, VR any](kvs KeyValueGStream[K, V], mapper func(contex
 	}
 }
 
-func KeyValueMapErr[K, V, KR, VR any](kvs KeyValueGStream[K, V], mapper func(context.Context, KeyValue[K, V]) (KeyValue[KR, VR], error)) (KeyValueGStream[KR, VR], FailedKeyValueGStream[K, V]) {
+func KVMapErr[K, V, KR, VR any](kvs KeyValueGStream[K, V], mapper func(context.Context, KeyValue[K, V]) (KeyValue[KR, VR], error)) (KeyValueGStream[KR, VR], FailedKeyValueGStream[K, V]) {
 	kvsImpl := kvs.(*keyValueGStream[K, V]).gstream()
 	mapped, failed := MapErr[KeyValue[K, V], KeyValue[KR, VR]](kvsImpl, mapper)
 	mappedImpl := mapped.(*gstream[KeyValue[KR, VR]])
@@ -463,20 +464,20 @@ func KeyValueMapErr[K, V, KR, VR any](kvs KeyValueGStream[K, V], mapper func(con
 		}
 }
 
-func KeyValueMapValues[K, V, VR any](kvs KeyValueGStream[K, V], mapper func(context.Context, V) VR) KeyValueGStream[K, VR] {
-	return KeyValueMap[K, V, K, VR](kvs, func(ctx context.Context, kv KeyValue[K, V]) KeyValue[K, VR] {
+func KVMapValues[K, V, VR any](kvs KeyValueGStream[K, V], mapper func(context.Context, V) VR) KeyValueGStream[K, VR] {
+	return KVMap[K, V, K, VR](kvs, func(ctx context.Context, kv KeyValue[K, V]) KeyValue[K, VR] {
 		return NewKeyValue(kv.Key, mapper(ctx, kv.Value))
 	})
 }
 
-func KeyValueMapValuesErr[K, V, VR any](kvs KeyValueGStream[K, V], mapper func(context.Context, V) (VR, error)) (KeyValueGStream[K, VR], FailedKeyValueGStream[K, V]) {
-	return KeyValueMapErr[K, V, K, VR](kvs, func(ctx context.Context, kv KeyValue[K, V]) (KeyValue[K, VR], error) {
+func KVMapValuesErr[K, V, VR any](kvs KeyValueGStream[K, V], mapper func(context.Context, V) (VR, error)) (KeyValueGStream[K, VR], FailedKeyValueGStream[K, V]) {
+	return KVMapErr[K, V, K, VR](kvs, func(ctx context.Context, kv KeyValue[K, V]) (KeyValue[K, VR], error) {
 		vr, err := mapper(ctx, kv.Value)
 		return NewKeyValue(kv.Key, vr), err
 	})
 }
 
-func KeyValueFlatMap[K, V, KR, VR any](kvs KeyValueGStream[K, V], flatMapper func(context.Context, KeyValue[K, V]) []KeyValue[KR, VR]) KeyValueGStream[KR, VR] {
+func KVFlatMap[K, V, KR, VR any](kvs KeyValueGStream[K, V], flatMapper func(context.Context, KeyValue[K, V]) []KeyValue[KR, VR]) KeyValueGStream[KR, VR] {
 	kvsImpl := kvs.(*keyValueGStream[K, V]).gstream()
 	mkvs := FlatMap[KeyValue[K, V], KeyValue[KR, VR]](kvsImpl, flatMapper).(*gstream[KeyValue[KR, VR]])
 
@@ -487,7 +488,7 @@ func KeyValueFlatMap[K, V, KR, VR any](kvs KeyValueGStream[K, V], flatMapper fun
 	}
 }
 
-func KeyValueFlatMapErr[K, V, KR, VR any](kvs KeyValueGStream[K, V], flatMapper func(context.Context, KeyValue[K, V]) ([]KeyValue[KR, VR], error)) (KeyValueGStream[KR, VR], FailedKeyValueGStream[K, V]) {
+func KVFlatMapErr[K, V, KR, VR any](kvs KeyValueGStream[K, V], flatMapper func(context.Context, KeyValue[K, V]) ([]KeyValue[KR, VR], error)) (KeyValueGStream[KR, VR], FailedKeyValueGStream[K, V]) {
 	kvsImpl := kvs.(*keyValueGStream[K, V]).gstream()
 	mapped, failed := FlatMapErr[KeyValue[K, V], KeyValue[KR, VR]](kvsImpl, flatMapper)
 	mappedImpl := mapped.(*gstream[KeyValue[KR, VR]])
@@ -504,8 +505,8 @@ func KeyValueFlatMapErr[K, V, KR, VR any](kvs KeyValueGStream[K, V], flatMapper 
 		}
 }
 
-func KeyValueFlatMapValues[K, V, VR any](kvs KeyValueGStream[K, V], flatMapper func(context.Context, V) []VR) KeyValueGStream[K, VR] {
-	return KeyValueFlatMap[K, V, K, VR](kvs, func(ctx context.Context, kv KeyValue[K, V]) []KeyValue[K, VR] {
+func KVFlatMapValues[K, V, VR any](kvs KeyValueGStream[K, V], flatMapper func(context.Context, V) []VR) KeyValueGStream[K, VR] {
+	return KVFlatMap[K, V, K, VR](kvs, func(ctx context.Context, kv KeyValue[K, V]) []KeyValue[K, VR] {
 		mvs := flatMapper(ctx, kv.Value)
 		kvs := make([]KeyValue[K, VR], len(mvs))
 		for i, mv := range mvs {
@@ -515,8 +516,8 @@ func KeyValueFlatMapValues[K, V, VR any](kvs KeyValueGStream[K, V], flatMapper f
 	})
 }
 
-func KeyValueFlatMapValuesErr[K, V, VR any](kvs KeyValueGStream[K, V], flatMapper func(context.Context, V) ([]VR, error)) (KeyValueGStream[K, VR], FailedKeyValueGStream[K, V]) {
-	return KeyValueFlatMapErr[K, V, K, VR](kvs, func(ctx context.Context, kv KeyValue[K, V]) ([]KeyValue[K, VR], error) {
+func KVFlatMapValuesErr[K, V, VR any](kvs KeyValueGStream[K, V], flatMapper func(context.Context, V) ([]VR, error)) (KeyValueGStream[K, VR], FailedKeyValueGStream[K, V]) {
+	return KVFlatMapErr[K, V, K, VR](kvs, func(ctx context.Context, kv KeyValue[K, V]) ([]KeyValue[K, VR], error) {
 		vrs, err := flatMapper(ctx, kv.Value)
 		kvr := make([]KeyValue[K, VR], len(vrs))
 		for i, vr := range vrs {
