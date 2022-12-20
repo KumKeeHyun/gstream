@@ -5,7 +5,6 @@ import (
 	"github.com/KumKeeHyun/gstream/options/pipe"
 	"github.com/KumKeeHyun/gstream/options/sink"
 	"github.com/KumKeeHyun/gstream/state"
-	"github.com/KumKeeHyun/gstream/state/materialized"
 )
 
 type GStream[T any] interface {
@@ -42,7 +41,7 @@ type KeyValueGStream[K, V any] interface {
 	To(...sink.Option) <-chan KeyValue[K, V]
 
 	ToValueStream() GStream[V]
-	ToTable(materialized.Materialized[K, V]) GTable[K, V]
+	ToTable(state.Options[K, V]) GTable[K, V]
 }
 
 type FailedKeyValueGStream[K, V any] interface {
@@ -267,15 +266,6 @@ func FlatMapErr[T, TR any](s GStream[T], flatMapper func(context.Context, T) ([]
 
 // -------------------------------
 
-func newFailedGStream[T any](s GStream[Fail[T]]) *failedGStream[T] {
-	sImpl := s.(*gstream[Fail[T]])
-	return &failedGStream[T]{
-		builder:  sImpl.builder,
-		rid:      sImpl.rid,
-		addChild: sImpl.addChild,
-	}
-}
-
 type failedGStream[T any] struct {
 	builder  *builder
 	rid      routineID
@@ -424,8 +414,8 @@ func (kvs *keyValueGStream[K, V]) ToValueStream() GStream[V] {
 	})
 }
 
-func (kvs *keyValueGStream[K, V]) ToTable(mater materialized.Materialized[K, V]) GTable[K, V] {
-	kvstore := state.NewKeyValueStore(mater)
+func (kvs *keyValueGStream[K, V]) ToTable(sopt state.Options[K, V]) GTable[K, V] {
+	kvstore := state.NewKeyValueStore(sopt)
 	if closer, ok := kvstore.(Closer); ok {
 		kvs.builder.sctx.addStore(closer)
 	}
@@ -646,10 +636,10 @@ func JoinStreamTableErr[K, V, VO, VR any](s KeyValueGStream[K, V], t GTable[K, V
 
 // -------------------------------
 
-func Aggregate[K, V, VR any](kvs KeyValueGStream[K, V], initializer func() VR, aggregator func(KeyValue[K, V], VR) VR, mater materialized.Materialized[K, VR]) GTable[K, VR] {
+func Aggregate[K, V, VR any](kvs KeyValueGStream[K, V], initializer func() VR, aggregator func(KeyValue[K, V], VR) VR, sopt state.Options[K, VR]) GTable[K, VR] {
 	kvsImpl := kvs.(*keyValueGStream[K, V])
 
-	kvstore := state.NewKeyValueStore(mater)
+	kvstore := state.NewKeyValueStore(sopt)
 	if closer, ok := kvstore.(Closer); ok {
 		kvsImpl.builder.sctx.addStore(closer)
 	}
@@ -667,9 +657,9 @@ func Aggregate[K, V, VR any](kvs KeyValueGStream[K, V], initializer func() VR, a
 	}
 }
 
-func Count[K, V any](kvs KeyValueGStream[K, V], mater materialized.Materialized[K, int]) GTable[K, int] {
+func Count[K, V any](kvs KeyValueGStream[K, V], sopt state.Options[K, int]) GTable[K, int] {
 	cntInit := func() int { return 0 }
 	cntAgg := func(_ KeyValue[K, V], cnt int) int { return cnt + 1 }
 
-	return Aggregate(kvs, cntInit, cntAgg, mater)
+	return Aggregate(kvs, cntInit, cntAgg, sopt)
 }

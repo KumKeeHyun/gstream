@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/KumKeeHyun/gstream/state/materialized"
+	"github.com/KumKeeHyun/gstream/state"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 	"testing"
@@ -20,10 +20,10 @@ func TestMapErr(t *testing.T) {
 	close(ch)
 
 	b := NewBuilder()
-	src := Stream[int](b).From(ch)
+	intStream := Stream[int](b).From(ch)
 
 	res := make([]int, 0, 4)
-	mapped, _ := MapErr[int, int](src, func(_ context.Context, i int) (int, error) {
+	mapped, _ := MapErr[int, int](intStream, func(_ context.Context, i int) (int, error) {
 		if i == 3 {
 			return 0, errors.New("mock error")
 		}
@@ -47,10 +47,10 @@ func TestKeyValueGStream_MapErr(t *testing.T) {
 	close(ch)
 
 	b := NewBuilder()
-	src := Stream[int](b).From(ch)
+	intStream := Stream[int](b).From(ch)
 
 	res := make([]int, 0, 4)
-	mapped, _ := SelectKey(src, func(i int) int { return i }).
+	mapped, _ := SelectKey(intStream, func(i int) int { return i }).
 		MapErr(func(_ context.Context, kv KeyValue[int, int]) (KeyValue[int, int], error) {
 			if kv.Key == 3 {
 				return kv, errors.New("mock error")
@@ -83,16 +83,15 @@ func TestJoinedGStream_JoinTableErr(t *testing.T) {
 	close(tc)
 
 	b := NewBuilder()
-	ssrc := Stream[int](b).From(sc)
+	intStream := Stream[int](b).From(sc)
 
 	selectKey := func(i int) int { return i }
-	mater, _ := materialized.New(materialized.WithInMemory[int, int]())
-	tsrc := Table[int, int](b).From(tc,
+	sopt := state.NewOptions[int, int]()
+	intTable := Table[int, int](b).From(tc,
 		selectKey,
-		mater)
+		sopt)
 
-
-	joined, failed := JoinStreamTableErr[int, int, int, string](SelectKey[int, int](ssrc, selectKey), tsrc, func(k, v, vo int) (string, error) {
+	joined, failed := JoinStreamTableErr[int, int, int, string](SelectKey[int, int](intStream, selectKey), intTable, func(k, v, vo int) (string, error) {
 		if k%2 == 0 {
 			return fmt.Sprintf("key: %d, value: %d, valueOut: %d", k, v, vo), nil
 		} else {

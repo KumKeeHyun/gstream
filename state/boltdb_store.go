@@ -2,7 +2,6 @@ package state
 
 import (
 	"errors"
-	"github.com/KumKeeHyun/gstream/state/materialized"
 	bolt "go.etcd.io/bbolt"
 	"os"
 	"path"
@@ -46,8 +45,8 @@ func openBoltDB(path string) *bolt.DB {
 	return db
 }
 
-func newBoltDBKeyValueStore[K, V any](mater materialized.Materialized[K, V]) KeyValueStore[K, V] {
-	dbPath := path.Join(mater.DirPath(), dbFile)
+func newBoltDBKeyValueStore[K, V any](opts Options[K, V]) KeyValueStore[K, V] {
+	dbPath := path.Join(opts.DirPath(), dbFile)
 	if err := os.MkdirAll(filepath.Dir(dbPath), os.ModePerm); err != nil {
 		panic(err)
 	}
@@ -55,7 +54,7 @@ func newBoltDBKeyValueStore[K, V any](mater materialized.Materialized[K, V]) Key
 
 	// Create new bucket with Materialized.Name().
 	err := db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte(mater.Name()))
+		_, err := tx.CreateBucketIfNotExists([]byte(opts.Name()))
 		return err
 	})
 	if err != nil {
@@ -65,17 +64,17 @@ func newBoltDBKeyValueStore[K, V any](mater materialized.Materialized[K, V]) Key
 
 	return &boltDBKeyValueStore[K, V]{
 		db:       db,
-		bucket:   []byte(mater.Name()),
-		keySerde: mater.KeySerde(),
-		valSerde: mater.ValueSerde(),
+		bucket:   []byte(opts.Name()),
+		keySerde: opts.KeySerde(),
+		valSerde: opts.ValueSerde(),
 	}
 }
 
 type boltDBKeyValueStore[K, V any] struct {
 	db       *bolt.DB
 	bucket   []byte
-	keySerde materialized.Serde[K]
-	valSerde materialized.Serde[V]
+	keySerde Serde[K]
+	valSerde Serde[V]
 }
 
 var _ KeyValueStore[any, any] = &boltDBKeyValueStore[any, any]{}

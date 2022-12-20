@@ -1,8 +1,6 @@
-package materialized
+package state
 
-import (
-	"encoding/json"
-)
+import "encoding/json"
 
 type Serde[T any] interface {
 	Serialize(T) []byte

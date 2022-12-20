@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/KumKeeHyun/gstream"
-	"github.com/KumKeeHyun/gstream/state/materialized"
-	"log"
+	"github.com/KumKeeHyun/gstream/state"
 )
 
 type UserName struct {
@@ -42,14 +41,11 @@ func main() {
 
 	builder := gstream.NewBuilder()
 
-	ageMater, err := materialized.New(
-		materialized.WithInMemory[int, UserAge](),
+	sopt := state.NewOptions(
+		state.WithInMemory[int, UserAge](),
 	)
-	if err != nil {
-		log.Fatal(err)
-	}
 	ageTable := gstream.Table[int, UserAge](builder).
-		From(ageInput, ageKeySelector, ageMater)
+		From(ageInput, ageKeySelector, sopt)
 
 	nameStream := gstream.Stream[UserName](builder).
 		From(nameInput)

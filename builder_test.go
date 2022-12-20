@@ -3,7 +3,7 @@ package gstream
 import (
 	"context"
 	"github.com/KumKeeHyun/gstream/options/source"
-	"github.com/KumKeeHyun/gstream/state/materialized"
+	"github.com/KumKeeHyun/gstream/state"
 	"testing"
 
 	"go.uber.org/goleak"
@@ -91,10 +91,10 @@ func TestTable_SinglePool_CloseChan(t *testing.T) {
 	close(ch)
 
 	builder := NewBuilder()
-	mater, _ := materialized.New[int, int]()
+	sopt := state.NewOptions[int, int]()
 	Table[int, int](builder).From(ch,
 		func(v int) int { return v },
-		mater,
+		sopt,
 		source.WithWorkerPool(1),
 	)
 	builder.BuildAndStart(context.Background())
@@ -109,10 +109,10 @@ func TestTable_SinglePool_Cancel(t *testing.T) {
 	}
 
 	builder := NewBuilder()
-	mater, _ := materialized.New[int, int]()
+	sopt := state.NewOptions[int, int]()
 	Table[int, int](builder).From(ch,
 		func(v int) int { return v },
-		mater,
+		sopt,
 		source.WithWorkerPool(1),
 	)
 
@@ -137,10 +137,10 @@ func TestTable_MultiPool_CloseChan(t *testing.T) {
 	close(ch)
 
 	builder := NewBuilder()
-	mater, _ := materialized.New[int, int]()
+	sopt := state.NewOptions[int, int]()
 	Table[int, int](builder).From(ch,
 		func(v int) int { return v },
-		mater,
+		sopt,
 		source.WithWorkerPool(5),
 	)
 	builder.BuildAndStart(context.Background())
@@ -155,10 +155,10 @@ func TestTable_MultiPool_Cancel(t *testing.T) {
 	}
 
 	builder := NewBuilder()
-	mater, _ := materialized.New[int, int]()
+	sopt := state.NewOptions[int, int]()
 	Table[int, int](builder).From(ch,
 		func(v int) int { return v },
-		mater,
+		sopt,
 		source.WithWorkerPool(5),
 	)
 

@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/KumKeeHyun/gstream"
-	"github.com/KumKeeHyun/gstream/state/materialized"
-	"log"
+	"github.com/KumKeeHyun/gstream/state"
 )
 
 type User struct {
@@ -38,28 +37,19 @@ func main() {
 	source := gstream.Stream[User](builder).From(input)
 	users := gstream.SelectKey(source, userKeySelector)
 
-	//userMater, err := materialized.New(
-	//	materialized.WithInMemory[int, *UserHistory](),
-	//)
-	userMater, err := materialized.New(
-		materialized.WithBoltDB[int, *UserHistory]("userhistory"),
+	hopt := state.NewOptions(
+		state.WithBoltDB[int, *UserHistory]("userhistory"),
 	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	gstream.Aggregate[int, User, *UserHistory](users, initializer, aggregator, userMater).
+	gstream.Aggregate[int, User, *UserHistory](users, initializer, aggregator, hopt).
 		ToValueStream().
 		Foreach(func(_ context.Context, uh *UserHistory) {
 			fmt.Println(uh)
 		})
 
-	countMater, err := materialized.New(
-		materialized.WithBoltDB[int, int]("countuser"),
+	copt := state.NewOptions(
+		state.WithBoltDB[int, int]("countuser"),
 	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	gstream.Count(users, countMater).
+	gstream.Count(users, copt).
 		ToStream().
 		Foreach(func(_ context.Context, kv gstream.KeyValue[int, int]) {
 			fmt.Println(kv.Key, kv.Value)

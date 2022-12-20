@@ -3,8 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/KumKeeHyun/gstream/state/materialized"
-	"log"
+	"github.com/KumKeeHyun/gstream/state"
 	"strings"
 	"unicode"
 
@@ -31,13 +30,10 @@ func main() {
 		return w
 	})
 
-	mater, err := materialized.New(
-		materialized.WithInMemory[string, int](),
+	sopt := state.NewOptions(
+		state.WithInMemory[string, int](),
 	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	gstream.Count[string](kvWords, mater).
+	gstream.Count[string](kvWords, sopt).
 		ToStream().
 		Foreach(func(_ context.Context, kv gstream.KeyValue[string, int]) {
 			fmt.Printf("word: %s, cnt: %d\n", kv.Key, kv.Value)
