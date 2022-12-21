@@ -1,4 +1,4 @@
-// Package gstream is stream processing library
+// Package gstream is stream processing library abstracting pipelines pattern using generic.
 package gstream
 
 import (
@@ -8,6 +8,8 @@ import (
 	"github.com/KumKeeHyun/gstream/state"
 )
 
+// GStream is value stream interface for DSL.
+// it can be converted to KeyValueGStream by SelectKey function.
 type GStream[T any] interface {
 	Filter(func(T) bool) GStream[T]
 	Foreach(func(context.Context, T))
@@ -15,8 +17,13 @@ type GStream[T any] interface {
 	MapErr(func(context.Context, T) (T, error)) (GStream[T], FailedGStream[T])
 	FlatMap(func(context.Context, T) []T) GStream[T]
 	FlatMapErr(func(context.Context, T) ([]T, error)) (GStream[T], FailedGStream[T])
+	// Merge merge two streams into one.
+	// If two streams are in a different pipeline, a new pipeline is created.
 	Merge(GStream[T], ...pipe.Option) GStream[T]
+	// Pipe creates a new pipeline.
+	// Downstream are processed in the new pipeline.
 	Pipe(...pipe.Option) GStream[T]
+	// To emits records to returned sink channel.
 	To(...sink.Option) <-chan T
 }
 
@@ -26,6 +33,9 @@ type FailedGStream[T any] interface {
 	ToStream() GStream[T]
 }
 
+// KeyValueGStream is key-value stream interface for DSL.
+// it can be converted to GStream by ToValueStream method
+// or GTable by ToTable method.
 type KeyValueGStream[K, V any] interface {
 	Filter(func(KeyValue[K, V]) bool) KeyValueGStream[K, V]
 	Foreach(func(context.Context, KeyValue[K, V]))
@@ -37,11 +47,19 @@ type KeyValueGStream[K, V any] interface {
 	FlatMapErr(func(context.Context, KeyValue[K, V]) ([]KeyValue[K, V], error)) (KeyValueGStream[K, V], FailedKeyValueGStream[K, V])
 	FlatMapValues(func(context.Context, V) []V) KeyValueGStream[K, V]
 	FlatMapValuesErr(func(context.Context, V) ([]V, error)) (KeyValueGStream[K, V], FailedKeyValueGStream[K, V])
+	// Merge merge two streams into one.
+	// If two streams are in a different pipeline, a new pipeline is created.
 	Merge(KeyValueGStream[K, V], ...pipe.Option) KeyValueGStream[K, V]
+	// Pipe creates a new pipeline.
+	// Subgraph nodes are processed in the new pipeline.
 	Pipe(...pipe.Option) KeyValueGStream[K, V]
+	// To emits records to returned sink channel.
 	To(...sink.Option) <-chan KeyValue[K, V]
 
+	// ToValueStream convert this stream to a value stream.
+	// KeyValueGStream[K, V] -> GStream[V]
 	ToValueStream() GStream[V]
+	// ToTable convert this stream to a table.
 	ToTable(state.Options[K, V]) GTable[K, V]
 }
 
@@ -49,11 +67,6 @@ type FailedKeyValueGStream[K, V any] interface {
 	Filter(func(KeyValue[K, V], error) bool) FailedKeyValueGStream[K, V]
 	Foreach(func(context.Context, KeyValue[K, V], error))
 	ToStream() KeyValueGStream[K, V]
-}
-
-type JoinedGStream[K, V, VO, VR any] interface {
-	JoinTable(GTable[K, VO], func(K, V, VO) VR) KeyValueGStream[K, VR]
-	JoinTableErr(GTable[K, VO], func(K, V, VO) (VR, error)) (KeyValueGStream[K, VR], FailedKeyValueGStream[K, V])
 }
 
 // -------------------------------
@@ -166,6 +179,10 @@ func (s *gstream[T]) To(opts ...sink.Option) <-chan T {
 
 // -------------------------------
 
+// Map transform each record into new record.
+// The provided mapper must not have any side effects.
+//
+// If you need to use a mapper with side effects, look MapErr.
 func Map[T, TR any](s GStream[T], mapper func(context.Context, T) TR) GStream[TR] {
 	sImpl := s.(*gstream[T])
 	mapSupplier := newMapSupplier(mapper)
@@ -179,6 +196,10 @@ func Map[T, TR any](s GStream[T], mapper func(context.Context, T) TR) GStream[TR
 	}
 }
 
+// MapErr transform each record into new record with side effects.
+//
+// The first return value is a stream for a normally mapped value.
+// The second return value is a stream for a record and an error value that failed to be mapped.
 func MapErr[T, TR any](s GStream[T], mapper func(context.Context, T) (TR, error)) (ss GStream[TR], fs FailedGStream[T]) {
 	sImpl := s.(*gstream[T])
 	resultNode := newProcessorNode[T, result[T, TR]](newMapSupplier[T, result[T, TR]](func(ctx context.Context, d T) result[T, TR] {
@@ -216,6 +237,7 @@ func MapErr[T, TR any](s GStream[T], mapper func(context.Context, T) (TR, error)
 		}
 }
 
+// FlatMap transform each record into zero or more records.
 func FlatMap[T, TR any](s GStream[T], flatMapper func(context.Context, T) []TR) GStream[TR] {
 	sImpl := s.(*gstream[T])
 	flatMapNode := newProcessorNode[T, TR](newFlatMapSupplier(flatMapper))
@@ -228,6 +250,7 @@ func FlatMap[T, TR any](s GStream[T], flatMapper func(context.Context, T) []TR) 
 	}
 }
 
+// FlatMapErr transform each record into zero or more records with side effects.
 func FlatMapErr[T, TR any](s GStream[T], flatMapper func(context.Context, T) ([]TR, error)) (ss GStream[TR], fs FailedGStream[T]) {
 	sImpl := s.(*gstream[T])
 	resultNode := newProcessorNode[T, result[T, []TR]](newMapSupplier[T, result[T, []TR]](func(ctx context.Context, d T) result[T, []TR] {
@@ -309,18 +332,6 @@ func (fs *failedGStream[T]) ToStream() GStream[T] {
 }
 
 // -------------------------------
-
-func SelectKey[K, V any](s GStream[V], keySelecter func(V) K) KeyValueGStream[K, V] {
-	kvs := Map(s, func(_ context.Context, v V) KeyValue[K, V] {
-		return NewKeyValue(keySelecter(v), v)
-	}).(*gstream[KeyValue[K, V]])
-
-	return &keyValueGStream[K, V]{
-		builder:  kvs.builder,
-		rid:      kvs.rid,
-		addChild: kvs.addChild,
-	}
-}
 
 type keyValueGStream[K, V any] struct {
 	builder  *builder
@@ -415,8 +426,8 @@ func (kvs *keyValueGStream[K, V]) ToValueStream() GStream[V] {
 	})
 }
 
-func (kvs *keyValueGStream[K, V]) ToTable(sopt state.Options[K, V]) GTable[K, V] {
-	kvstore := state.NewKeyValueStore(sopt)
+func (kvs *keyValueGStream[K, V]) ToTable(stateOpt state.Options[K, V]) GTable[K, V] {
+	kvstore := state.NewKeyValueStore(stateOpt)
 	if closer, ok := kvstore.(Closer); ok {
 		kvs.builder.sctx.addStore(closer)
 	}
@@ -436,6 +447,28 @@ func (kvs *keyValueGStream[K, V]) ToTable(sopt state.Options[K, V]) GTable[K, V]
 
 // -------------------------------
 
+// SelectKey set a new key for each record in gstream.
+func SelectKey[K, V any](s GStream[V], keySelecter func(V) K) KeyValueGStream[K, V] {
+	kvs := Map(s, func(_ context.Context, v V) KeyValue[K, V] {
+		return NewKeyValue(keySelecter(v), v)
+	}).(*gstream[KeyValue[K, V]])
+
+	return &keyValueGStream[K, V]{
+		builder:  kvs.builder,
+		rid:      kvs.rid,
+		addChild: kvs.addChild,
+	}
+}
+
+// GroupBy group records on a new key.
+func GroupBy[K, V, KR any](kvs KeyValueGStream[K, V], keyMapper func(K, V) KR) KeyValueGStream[KR, V] {
+	return KVMap(kvs, func(_ context.Context, kv KeyValue[K, V]) KeyValue[KR, V] {
+		return NewKeyValue(keyMapper(kv.Key, kv.Value), kv.Value)
+	})
+}
+
+// KVMap transform each record into new record.
+// KeyValue version of Map.
 func KVMap[K, V, KR, VR any](kvs KeyValueGStream[K, V], mapper func(context.Context, KeyValue[K, V]) KeyValue[KR, VR]) KeyValueGStream[KR, VR] {
 	kvsImpl := kvs.(*keyValueGStream[K, V]).gstream()
 	mkvs := Map[KeyValue[K, V], KeyValue[KR, VR]](kvsImpl, mapper).(*gstream[KeyValue[KR, VR]])
@@ -447,6 +480,8 @@ func KVMap[K, V, KR, VR any](kvs KeyValueGStream[K, V], mapper func(context.Cont
 	}
 }
 
+// KVMapErr transform each record into new record with side effects.
+// KeyValue version of MapErr.
 func KVMapErr[K, V, KR, VR any](kvs KeyValueGStream[K, V], mapper func(context.Context, KeyValue[K, V]) (KeyValue[KR, VR], error)) (KeyValueGStream[KR, VR], FailedKeyValueGStream[K, V]) {
 	kvsImpl := kvs.(*keyValueGStream[K, V]).gstream()
 	mapped, failed := MapErr[KeyValue[K, V], KeyValue[KR, VR]](kvsImpl, mapper)
@@ -464,12 +499,14 @@ func KVMapErr[K, V, KR, VR any](kvs KeyValueGStream[K, V], mapper func(context.C
 		}
 }
 
+// KVMapValues transform the value of each record into new value of record.
 func KVMapValues[K, V, VR any](kvs KeyValueGStream[K, V], mapper func(context.Context, V) VR) KeyValueGStream[K, VR] {
 	return KVMap[K, V, K, VR](kvs, func(ctx context.Context, kv KeyValue[K, V]) KeyValue[K, VR] {
 		return NewKeyValue(kv.Key, mapper(ctx, kv.Value))
 	})
 }
 
+// KVMapValuesErr transform the value of each record into new value of record with side effects.
 func KVMapValuesErr[K, V, VR any](kvs KeyValueGStream[K, V], mapper func(context.Context, V) (VR, error)) (KeyValueGStream[K, VR], FailedKeyValueGStream[K, V]) {
 	return KVMapErr[K, V, K, VR](kvs, func(ctx context.Context, kv KeyValue[K, V]) (KeyValue[K, VR], error) {
 		vr, err := mapper(ctx, kv.Value)
@@ -477,6 +514,8 @@ func KVMapValuesErr[K, V, VR any](kvs KeyValueGStream[K, V], mapper func(context
 	})
 }
 
+// KVFlatMap transform each record into zero or more records.
+// KeyValue version of FlatMap.
 func KVFlatMap[K, V, KR, VR any](kvs KeyValueGStream[K, V], flatMapper func(context.Context, KeyValue[K, V]) []KeyValue[KR, VR]) KeyValueGStream[KR, VR] {
 	kvsImpl := kvs.(*keyValueGStream[K, V]).gstream()
 	mkvs := FlatMap[KeyValue[K, V], KeyValue[KR, VR]](kvsImpl, flatMapper).(*gstream[KeyValue[KR, VR]])
@@ -488,6 +527,8 @@ func KVFlatMap[K, V, KR, VR any](kvs KeyValueGStream[K, V], flatMapper func(cont
 	}
 }
 
+// KVFlatMapErr transform each record into zero or more records with side effects.
+// KeyValue version of FlatMapErr.
 func KVFlatMapErr[K, V, KR, VR any](kvs KeyValueGStream[K, V], flatMapper func(context.Context, KeyValue[K, V]) ([]KeyValue[KR, VR], error)) (KeyValueGStream[KR, VR], FailedKeyValueGStream[K, V]) {
 	kvsImpl := kvs.(*keyValueGStream[K, V]).gstream()
 	mapped, failed := FlatMapErr[KeyValue[K, V], KeyValue[KR, VR]](kvsImpl, flatMapper)
@@ -505,6 +546,7 @@ func KVFlatMapErr[K, V, KR, VR any](kvs KeyValueGStream[K, V], flatMapper func(c
 		}
 }
 
+// KVFlatMapValues transform the value of each record into zero or more values.
 func KVFlatMapValues[K, V, VR any](kvs KeyValueGStream[K, V], flatMapper func(context.Context, V) []VR) KeyValueGStream[K, VR] {
 	return KVFlatMap[K, V, K, VR](kvs, func(ctx context.Context, kv KeyValue[K, V]) []KeyValue[K, VR] {
 		mvs := flatMapper(ctx, kv.Value)
@@ -516,6 +558,7 @@ func KVFlatMapValues[K, V, VR any](kvs KeyValueGStream[K, V], flatMapper func(co
 	})
 }
 
+// KVFlatMapValuesErr transform the value of each record into zero or more values with side effects.
 func KVFlatMapValuesErr[K, V, VR any](kvs KeyValueGStream[K, V], flatMapper func(context.Context, V) ([]VR, error)) (KeyValueGStream[K, VR], FailedKeyValueGStream[K, V]) {
 	return KVFlatMapErr[K, V, K, VR](kvs, func(ctx context.Context, kv KeyValue[K, V]) ([]KeyValue[K, VR], error) {
 		vrs, err := flatMapper(ctx, kv.Value)
@@ -577,6 +620,7 @@ func (fkvs *failedKeyValueGStream[K, V]) ToStream() KeyValueGStream[K, V] {
 
 // -------------------------------
 
+// JoinStreamTable join records of stream with table's records using inner join.
 func JoinStreamTable[K, V, VO, VR any](s KeyValueGStream[K, V], t GTable[K, VO], joiner func(K, V, VO) VR) KeyValueGStream[K, VR] {
 	sImpl := s.(*keyValueGStream[K, V])
 	valueGetter := t.(*gtable[K, VO]).valueGetter()
@@ -592,6 +636,7 @@ func JoinStreamTable[K, V, VO, VR any](s KeyValueGStream[K, V], t GTable[K, VO],
 	}
 }
 
+// JoinStreamTableErr join records of stream with table's records using inner join with side effects.
 func JoinStreamTableErr[K, V, VO, VR any](s KeyValueGStream[K, V], t GTable[K, VO], joiner func(K, V, VO) (VR, error)) (rs KeyValueGStream[K, VR], fs FailedKeyValueGStream[K, V]) {
 	sImpl := s.(*keyValueGStream[K, V])
 	valueGetter := t.(*gtable[K, VO]).valueGetter()
@@ -633,34 +678,4 @@ func JoinStreamTableErr[K, V, VO, VR any](s KeyValueGStream[K, V], t GTable[K, V
 			rid:      sImpl.rid,
 			addChild: curryingAddChild[KeyValue[K, result[KeyValue[K, V], KeyValue[K, VR]]], Fail[KeyValue[K, V]], Fail[KeyValue[K, V]]](fmn),
 		}
-}
-
-// -------------------------------
-
-func Aggregate[K, V, VR any](kvs KeyValueGStream[K, V], initializer func() VR, aggregator func(KeyValue[K, V], VR) VR, sopt state.Options[K, VR]) GTable[K, VR] {
-	kvsImpl := kvs.(*keyValueGStream[K, V])
-
-	kvstore := state.NewKeyValueStore(sopt)
-	if closer, ok := kvstore.(Closer); ok {
-		kvsImpl.builder.sctx.addStore(closer)
-	}
-
-	aggProcessorSupplier := newStreamAggregateSupplier(initializer, aggregator, kvstore)
-	aggNode := newProcessorNode[KeyValue[K, V], KeyValue[K, Change[VR]]](aggProcessorSupplier)
-	castAddChild[KeyValue[K, V], KeyValue[K, Change[VR]]](kvsImpl.addChild)(aggNode)
-
-	currying := curryingAddChild[KeyValue[K, V], KeyValue[K, Change[VR]], KeyValue[K, Change[VR]]](aggNode)
-	return &gtable[K, VR]{
-		builder:  kvsImpl.builder,
-		rid:      kvsImpl.rid,
-		kvstore:  kvstore,
-		addChild: currying,
-	}
-}
-
-func Count[K, V any](kvs KeyValueGStream[K, V], sopt state.Options[K, int]) GTable[K, int] {
-	cntInit := func() int { return 0 }
-	cntAgg := func(_ KeyValue[K, V], cnt int) int { return cnt + 1 }
-
-	return Aggregate(kvs, cntInit, cntAgg, sopt)
 }

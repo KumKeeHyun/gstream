@@ -63,6 +63,8 @@ func (o *options[K, V]) DirPath() string {
 
 type Option[K, V any] func(*options[K, V])
 
+// WithKeySerde set custom key serializer/deserializer.
+// default is json serde.
 func WithKeySerde[K, V any](keySerde Serde[K]) Option[K, V] {
 	return func(m *options[K, V]) {
 		if keySerde == nil {
@@ -72,6 +74,8 @@ func WithKeySerde[K, V any](keySerde Serde[K]) Option[K, V] {
 	}
 }
 
+// WithValueSerde set custom value serializer/deserializer.
+// default is json serde.
 func WithValueSerde[K, V any](valueSerde Serde[V]) Option[K, V] {
 	return func(m *options[K, V]) {
 		if valueSerde == nil {
@@ -81,12 +85,15 @@ func WithValueSerde[K, V any](valueSerde Serde[V]) Option[K, V] {
 	}
 }
 
+// WithInMemory use in-memory store.
+// default store type.
 func WithInMemory[K, V any]() Option[K, V] {
 	return func(m *options[K, V]) {
 		m.storeType = InMemory
 	}
 }
 
+// WithBoltDB use boltDB persistent store.
 func WithBoltDB[K, V any](name string) Option[K, V] {
 	return func(m *options[K, V]) {
 		m.storeType = BoltDB
