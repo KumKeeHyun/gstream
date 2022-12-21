@@ -1,6 +1,7 @@
 # GStream
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/KumKeeHyun/gstream)](https://goreportcard.com/report/github.com/KumKeeHyun/gstream)
+[![Godoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://godoc.org/github.com/KumKeeHyun/gstream)
 
 Kafka Streams DSL liked, Stream Processing Library abstracting pipelines pattern using generic.
 
